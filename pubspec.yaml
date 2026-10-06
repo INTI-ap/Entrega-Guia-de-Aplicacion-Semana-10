@@ -1,0 +1,59 @@
+name: manos_seguras
+description: >
+  ManosSeguras — Digitalización Flutter del instrumento oficial de
+  auditoría de higiene de manos (RM N.° 255-2016/MINSA), alineada al
+  ODS 3. Proyecto integrador de SIS048 - Desarrollo de Software II
+  (UAC). Versión de la Semana 10: arquitectura por capas (Semana 8),
+  principios SOLID e inyección de dependencias con get_it (Semana 9)
+  y persistencia local offline-first con drift/SQLite (Semana 10).
+publish_to: "none"
+version: 1.2.0+3
+
+environment:
+  sdk: ">=3.10.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # --- Navegación declarativa (Semana 6 / temática 1.4.1) ---
+  go_router: ^17.5.0
+
+  # --- Consumo de servicios REST (Semana 6 / temática 1.4.2) ---
+  http: ^1.5.0
+
+  # --- Inyección de dependencias (Semana 9 / temática 2.1.6) ---
+  get_it: ^9.3.0
+
+  # --- Persistencia local (Semana 10 / temáticas 2.2.1 a 2.2.3) ---
+  # drift es la capa de acceso a SQLite con verificación de tipos en
+  # tiempo de compilación y generación de código.
+  drift: ^2.34.0
+  # Binarios de SQLite para Android/iOS (no se necesita en Linux,
+  # macOS ni Windows, que ya la traen instalada).
+  sqlite3_flutter_libs: ^0.6.0
+  # Ruta de documentos de la aplicación, para ubicar el archivo .sqlite.
+  path_provider: ^2.1.6
+  # Manipulación portable de rutas de archivo.
+  path: ^1.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+  # `sqlite3` es dependencia transitiva de drift para escritorio; se declara
+  # explícitamente porque la prueba de migración lo usa para crear a mano una
+  # base con el esquema de la versión 1 (sin pasar por drift).
+  sqlite3: ^3.5.0
+
+  # --- Generación de código de drift (Semana 10) ---
+  drift_dev: ^2.34.0
+  build_runner: ^2.15.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/datos/

@@ -1,0 +1,26 @@
+# Configuración del analizador estático del proyecto ManosSeguras.
+#
+# Se conserva el conjunto de reglas recomendado por el equipo de Flutter
+# (flutter_lints) y se agregan tres reglas que refuerzan los principios
+# SOLID estudiados en la Semana 9:
+#   * prefer_final_locals  → inmutabilidad por defecto,
+#   * always_declare_return_types → contratos explícitos,
+#   * avoid_print → no dejar trazas de depuración en la entrega.
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    # El archivo generado por drift_dev no se revisa con el analizador:
+    # lo produce build_runner y no es código escrito por el estudiante.
+    - "**/*.g.dart"
+  errors:
+    # Un import sin usar suele indicar código que quedó de una versión
+    # anterior; se trata como error para que no llegue a la entrega.
+    unused_import: error
+
+linter:
+  rules:
+    - always_declare_return_types
+    - prefer_final_locals
+    - avoid_print
+    - directives_ordering

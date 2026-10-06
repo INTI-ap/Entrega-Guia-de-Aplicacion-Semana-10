@@ -1,0 +1,53 @@
+# Archivos y carpetas de Flutter / Dart que NO deben subirse a GitHub.
+#
+# Regla general de la Guía N.° 07: el repositorio contiene SOLO código
+# fuente y configuración. Todo lo que se pueda regenerar con
+# `flutter pub get`, `flutter pub run build_runner build` o `flutter run`
+# se ignora.
+
+# Dependencias descargadas
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+
+# Artefactos de build de Flutter
+.flutter-plugins
+.flutter-plugins-dependencies
+**/generated_plugin_registrant.dart
+android/app/debug
+android/app/profile
+android/app/release
+android/.gradle/
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+macos/Flutter/ephemeral/
+linux/flutter/ephemeral/
+windows/flutter/ephemeral/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# EXCEPCIÓN IMPORTANTE: la base de datos NO se versiona…
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db
+
+# …pero SÍ se versiona el código generado por drift, porque el docente y los
+# compañeros deben poder leer el esquema sin ejecutar build_runner. Si su
+# equipo prefiere no versionarlo, comente la línea siguiente y documente la
+# decisión en el README del repositorio (criterio de trazabilidad).
+!lib/data/local/manos_seguras_db.g.dart

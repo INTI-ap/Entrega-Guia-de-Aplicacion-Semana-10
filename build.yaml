@@ -1,0 +1,34 @@
+# Configuración del generador de código de drift (Semana 10, temática 2.2.2).
+#
+# `build_runner` lee este archivo antes de generar `*.g.dart`. Las dos opciones
+# que se activan son deliberadas y conviene entenderlas:
+#
+#  * `store_date_time_values_as_text: true`
+#      SQLite no tiene un tipo de dato para fechas. Por omisión drift guarda
+#      los `DateTime` como enteros (segundos desde epoch), lo que hace que la
+#      base sea difícil de leer desde `sqlite3` o DB Browser. Guardándolos como
+#      texto ISO-8601 la base se inspecciona a mano —justo lo que se pide en
+#      las evidencias del informe— y las comparaciones de fecha siguen siendo
+#      correctas porque el formato ISO ordena alfabéticamente igual que
+#      cronológicamente.
+#
+#  * `skip_verification_code: false`
+#      Mantiene la verificación del esquema en desarrollo. Cambiar esta opción
+#      no es una decisión que un estudiante deba tomar a la ligera: afecta a la
+#      seguridad de las migraciones del Reto 4.
+#
+# Los "managers" (gestores tipados de consultas) se dejan desactivados de
+# forma implícita: no se usan en el proyecto y su código generado requiere la
+# clase de la base en el mismo ámbito que el DAO.
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          store_date_time_values_as_text: true
+          named_parameters: true
+          # Los gestores tipados (`$$TablaTableManager`) no se usan en el
+          # proyecto y su código generado referencia tipos que el generador no
+          # puede resolver desde el ámbito del DAO. Desactivarlos mantiene el
+          # código generado más pequeño y compilable.
+          generate_manager: false
