@@ -95,8 +95,8 @@ void main() {
 
   // -----------------------------------------------------------------
   group('Esquema y migraciones', () {
-    test('la versión del esquema es la esperada', () {
-      expect(base.schemaVersion, 1);
+    test('la versión del esquema es la esperada (Reto 4 completado)', () {
+      expect(base.schemaVersion, 2);
     });
 
     test('las claves foráneas se activan en beforeOpen (Reto 5)', () async {
@@ -200,6 +200,57 @@ void main() {
       expect(evento, hasLength(1));
       expect(evento.first.id, 'observada');
     });
+
+    test('Reto 1 - columnas nuevas del formulario oficial se persisten y leen',
+        () async {
+      await sembrarCatalogos();
+      final DateTime inicio = DateTime(2026, 10, 8, 9, 0);
+      final DateTime fin = DateTime(2026, 10, 8, 9, 30);
+      final String id = await repositorio.guardar(
+        _auditoria(
+          id: 'con-formulario-oficial',
+        ).copyWith(
+          fechaInicio: inicio,
+          fechaFin: fin,
+          numeroCamas: 25,
+          consentimientoVerbal: true,
+          observacionGeneral: 'Observación de prueba',
+        ),
+      );
+
+      final Auditoria leida = await repositorio.obtenerPorId(id);
+      expect(leida.fechaInicio, inicio);
+      expect(leida.fechaFin, fin);
+      expect(leida.numeroCamas, 25);
+      expect(leida.consentimientoVerbal, isTrue);
+      expect(leida.observacionGeneral, 'Observación de prueba');
+    });
+
+    test('Reto 1 - listarPorRango filtra en SQL por fecha y excluye eliminadas',
+        () async {
+      await sembrarCatalogos();
+      await repositorio.guardar(
+        _auditoria(id: 'aud-enero', fecha: DateTime(2026, 1, 15)),
+      );
+      await repositorio.guardar(
+        _auditoria(id: 'aud-marzo', fecha: DateTime(2026, 3, 15)),
+      );
+      await repositorio.guardar(
+        _auditoria(id: 'aud-abril', fecha: DateTime(2026, 4, 15)),
+      );
+      await repositorio.guardar(
+        _auditoria(id: 'aud-julio', fecha: DateTime(2026, 7, 15)),
+      );
+      // Anulamos la de abril para verificar que no aparezca
+      await repositorio.eliminarLogicamente('aud-abril');
+
+      final List<Auditoria> rango = await repositorio.listarPorRango(
+        DateTime(2026, 2, 1),
+        DateTime(2026, 5, 1),
+      );
+
+      expect(rango.map((Auditoria a) => a.id), <String>['aud-marzo']);
+    });
   });
 
   // -----------------------------------------------------------------
@@ -300,6 +351,22 @@ void main() {
       await prefs.guardar('establecimiento.ultimo', '00006405');
       await prefs.eliminar('establecimiento.ultimo');
       expect(await prefs.leer('establecimiento.ultimo'), isNull);
+    });
+
+    test(
+        'Reto 1B - guardar preferencia registra timestamp en sincronizaciones',
+        () async {
+      final PreferenciasRepositoryDrift prefs =
+          PreferenciasRepositoryDrift(infra.preferenciasDao);
+      await prefs.guardar('tema.modo', 'oscuro');
+
+      final sinc = await (base.select(base.sincronizaciones)
+            ..where((t) => t.codigo.equals('preferencias')))
+          .getSingleOrNull();
+
+      expect(sinc, isNotNull);
+      expect(sinc!.codigo, 'preferencias');
+      expect(sinc.ultimaSincronizacion, isNotNull);
     });
   });
 

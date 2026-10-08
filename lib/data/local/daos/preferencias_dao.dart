@@ -41,18 +41,25 @@ class DriftPreferenciasDao extends DatabaseAccessor<db.ManosSegurasDb>
   /// `INSERT … ON CONFLICT(clave) DO UPDATE SET …`, la forma correcta de
   /// guardar una preferencia que puede existir o no.
   ///
-  /// TODO(reto-1b): registre además, en la misma transacción, la fecha del
-  /// último cambio en la tabla `sincronizaciones` con el código
-  /// `'preferencias'`, y muestre ese dato en la pantalla de diagnóstico.
+  /// **UPSERT (Reto 1)**: guarda la preferencia y registra atómicamente
+  /// en `sincronizaciones` la fecha del último cambio con código `'preferencias'`.
   @override
   Future<void> guardar(String clave, String valor) {
-    return into(attachedDatabase.preferencias).insertOnConflictUpdate(
-      db.PreferenciasCompanion.insert(
-        clave: clave,
-        valor: valor,
-        actualizadoEn: Value<DateTime>(DateTime.now()),
-      ),
-    );
+    return transaction(() async {
+      await into(attachedDatabase.preferencias).insertOnConflictUpdate(
+        db.PreferenciasCompanion.insert(
+          clave: clave,
+          valor: valor,
+          actualizadoEn: Value<DateTime>(DateTime.now()),
+        ),
+      );
+      await into(attachedDatabase.sincronizaciones).insertOnConflictUpdate(
+        db.SincronizacionesCompanion.insert(
+          codigo: 'preferencias',
+          ultimaSincronizacion: DateTime.now(),
+        ),
+      );
+    });
   }
 
   @override

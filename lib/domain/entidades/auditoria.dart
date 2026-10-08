@@ -51,6 +51,11 @@ class Auditoria {
     this.estado = EstadoAuditoria.borrador,
     this.eliminada = false,
     this.sincronizadaEn,
+    this.fechaInicio,
+    this.fechaFin,
+    this.numeroCamas,
+    this.consentimientoVerbal,
+    this.observacionGeneral,
     this.oportunidades = const <OportunidadRegistro>[],
   });
 
@@ -74,6 +79,15 @@ class Auditoria {
 
   /// Marca de tiempo de la última sincronización con el servidor.
   final DateTime? sincronizadaEn;
+
+  /// Campos del formulario oficial (Reto 1):
+  final DateTime? fechaInicio;
+  final DateTime? fechaFin;
+  final int? numeroCamas;
+  final bool? consentimientoVerbal;
+
+  /// Observación general de la auditoría (Reto 4):
+  final String? observacionGeneral;
 
   final List<OportunidadRegistro> oportunidades;
 
@@ -110,6 +124,11 @@ class Auditoria {
     EstadoAuditoria? estado,
     bool? eliminada,
     DateTime? sincronizadaEn,
+    DateTime? fechaInicio,
+    DateTime? fechaFin,
+    int? numeroCamas,
+    bool? consentimientoVerbal,
+    String? observacionGeneral,
     List<OportunidadRegistro>? oportunidades,
   }) {
     return Auditoria(
@@ -124,6 +143,11 @@ class Auditoria {
       estado: estado ?? this.estado,
       eliminada: eliminada ?? this.eliminada,
       sincronizadaEn: sincronizadaEn ?? this.sincronizadaEn,
+      fechaInicio: fechaInicio ?? this.fechaInicio,
+      fechaFin: fechaFin ?? this.fechaFin,
+      numeroCamas: numeroCamas ?? this.numeroCamas,
+      consentimientoVerbal: consentimientoVerbal ?? this.consentimientoVerbal,
+      observacionGeneral: observacionGeneral ?? this.observacionGeneral,
       oportunidades: oportunidades ?? this.oportunidades,
     );
   }

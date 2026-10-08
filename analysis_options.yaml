@@ -13,6 +13,13 @@ analyzer:
     # El archivo generado por drift_dev no se revisa con el analizador:
     # lo produce build_runner y no es código escrito por el estudiante.
     - "**/*.g.dart"
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
   errors:
     # Un import sin usar suele indicar código que quedó de una versión
     # anterior; se trata como error para que no llegue a la entrega.

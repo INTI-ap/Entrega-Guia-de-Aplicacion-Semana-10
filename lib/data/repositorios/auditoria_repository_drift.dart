@@ -58,6 +58,21 @@ class AuditoriaRepositoryDrift implements AuditoriaRepository {
     }
   }
 
+  /// **Reto 1:** filtra por rango de fechas mediante el DAO en SQL.
+  @override
+  Future<List<Auditoria>> listarPorRango(DateTime desde, DateTime hasta) async {
+    try {
+      return await _dao.listarPorRango(desde, hasta);
+    } on Fallo {
+      rethrow;
+    } catch (error) {
+      throw FalloLocal(
+        'No se pudieron leer las auditorías en el rango especificado.',
+        causa: error,
+      );
+    }
+  }
+
   @override
   Future<Auditoria> obtenerPorId(String id) async {
     try {
@@ -176,6 +191,20 @@ class AuditoriaRepositoryDrift implements AuditoriaRepository {
       rethrow;
     } catch (error) {
       throw FalloLocal('No se pudo anular la auditoría $id.', causa: error);
+    }
+  }
+
+  @override
+  Future<void> restaurar(String id) async {
+    try {
+      final int filas = await _dao.restaurar(id);
+      if (filas == 0) {
+        throw FalloNoEncontrado('No existe la auditoría $id para restaurar.');
+      }
+    } on Fallo {
+      rethrow;
+    } catch (error) {
+      throw FalloLocal('No se pudo restaurar la auditoría $id.', causa: error);
     }
   }
 

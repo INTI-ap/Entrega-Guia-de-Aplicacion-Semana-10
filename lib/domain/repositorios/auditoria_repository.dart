@@ -32,6 +32,9 @@ abstract interface class AuditoriaRepository {
     bool incluirEliminadas = false,
   });
 
+  /// Lista las auditorías activas en el rango de fechas [desde] y [hasta] (Reto 1).
+  Future<List<Auditoria>> listarPorRango(DateTime desde, DateTime hasta);
+
   /// Devuelve una auditoría con sus oportunidades o lanza
   /// [FalloNoEncontrado].
   Future<Auditoria> obtenerPorId(String id);
@@ -45,6 +48,9 @@ abstract interface class AuditoriaRepository {
 
   /// Borrado lógico: marca `eliminada = true`. Nunca borra la fila.
   Future<void> eliminarLogicamente(String id);
+
+  /// Restaura una auditoría marcada como anulada (`eliminada = false`). Reto 3.
+  Future<void> restaurar(String id);
 
   /// Agrega una oportunidad a una auditoría ya guardada.
   Future<OportunidadRegistro> agregarOportunidad(

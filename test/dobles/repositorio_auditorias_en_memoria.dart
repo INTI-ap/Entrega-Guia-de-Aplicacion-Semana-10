@@ -41,6 +41,17 @@ class RepositorioAuditoriasEnMemoria implements AuditoriaRepository {
   }
 
   @override
+  Future<List<Auditoria>> listarPorRango(DateTime desde, DateTime hasta) async {
+    _verificarFallo();
+    return _auditorias
+        .where((Auditoria a) =>
+            !a.eliminada &&
+            !a.fecha.isBefore(desde) &&
+            !a.fecha.isAfter(hasta))
+        .toList();
+  }
+
+  @override
   Future<Auditoria> obtenerPorId(String id) async {
     _verificarFallo();
     final Auditoria? encontrada = _auditorias
@@ -82,6 +93,16 @@ class RepositorioAuditoriasEnMemoria implements AuditoriaRepository {
       throw FalloNoEncontrado('No existe la auditoría $id.');
     }
     _auditorias[indice] = _auditorias[indice].copyWith(eliminada: true);
+  }
+
+  @override
+  Future<void> restaurar(String id) async {
+    _verificarFallo();
+    final int indice = _auditorias.indexWhere((Auditoria a) => a.id == id);
+    if (indice < 0) {
+      throw FalloNoEncontrado('No existe la auditoría $id.');
+    }
+    _auditorias[indice] = _auditorias[indice].copyWith(eliminada: false);
   }
 
   @override

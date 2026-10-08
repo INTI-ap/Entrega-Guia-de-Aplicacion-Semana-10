@@ -27,6 +27,7 @@ extension OportunidadRegistroMapper on dm.OportunidadRegistro {
       momento: dm.Momento.desdeClave(fila.momentoClave),
       accion: dm.Accion.desdeClave(fila.accionClave),
       observacion: fila.observacion,
+      duracionSegundos: fila.duracionSegundos,
     );
   }
 
@@ -37,6 +38,7 @@ extension OportunidadRegistroMapper on dm.OportunidadRegistro {
       momentoClave: momento.clave,
       accionClave: accion.clave,
       observacion: Value<String?>(observacion),
+      duracionSegundos: Value<int?>(duracionSegundos),
       id: incluirId && id != null
           ? Value<int>(id!)
           : const Value<int>.absent(),
@@ -133,6 +135,11 @@ extension AuditoriaMapper on dm.Auditoria {
       estado: Value<String>(estado.clave),
       eliminada: Value<bool>(eliminada),
       sincronizadaEn: Value<DateTime?>(sincronizadaEn),
+      fechaInicio: Value<DateTime?>(fechaInicio),
+      fechaFin: Value<DateTime?>(fechaFin),
+      numeroCamas: Value<int?>(numeroCamas),
+      consentimientoVerbal: Value<bool?>(consentimientoVerbal),
+      observacionGeneral: Value<String?>(observacionGeneral),
     );
   }
 
@@ -154,6 +161,11 @@ extension AuditoriaMapper on dm.Auditoria {
       estado: dm.EstadoAuditoria.desdeClave(cabecera.estado),
       eliminada: cabecera.eliminada,
       sincronizadaEn: cabecera.sincronizadaEn,
+      fechaInicio: cabecera.fechaInicio,
+      fechaFin: cabecera.fechaFin,
+      numeroCamas: cabecera.numeroCamas,
+      consentimientoVerbal: cabecera.consentimientoVerbal,
+      observacionGeneral: cabecera.observacionGeneral,
       oportunidades: oportunidades
           .map(OportunidadRegistroMapper.desdeFila)
           .toList(growable: false),

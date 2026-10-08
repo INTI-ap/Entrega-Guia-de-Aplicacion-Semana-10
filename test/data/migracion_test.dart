@@ -97,7 +97,6 @@ void main() {
             'manos_seguras_db.dart para completar el Reto 4.',
       );
     },
-    skip: 'Descomente/skip: activar cuando el equipo implemente la v2.',
   );
 }
 

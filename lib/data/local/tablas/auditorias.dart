@@ -53,6 +53,16 @@ class Auditorias extends Table {
   /// Marca temporal del último envío exitoso al servidor.
   DateTimeColumn get sincronizadaEn => dateTime().nullable()();
 
+  /// Campos requeridos por el formulario oficial (Reto 1):
+  DateTimeColumn get fechaInicio => dateTime().nullable()();
+  DateTimeColumn get fechaFin => dateTime().nullable()();
+  IntColumn get numeroCamas => integer().nullable()();
+  BoolColumn get consentimientoVerbal =>
+      boolean().nullable().withDefault(const Constant(true))();
+
+  /// Observación general de la auditoría (Reto 4):
+  TextColumn get observacionGeneral => text().nullable()();
+
   DateTimeColumn get creadoEn =>
       dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get actualizadoEn =>

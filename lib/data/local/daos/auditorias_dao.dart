@@ -40,6 +40,10 @@ abstract interface class AuditoriasDao {
   /// Lectura puntual de todas las auditorías, con su detalle.
   Future<List<Auditoria>> listar({bool incluirEliminadas = false});
 
+  /// Lista solo las auditorías activas dentro del rango [desde] y [hasta].
+  /// Reto 1: filtra a nivel de SQL (`where`), no en memoria.
+  Future<List<Auditoria>> listarPorRango(DateTime desde, DateTime hasta);
+
   /// Lee una auditoría concreta con su detalle.
   Future<Auditoria?> buscarPorId(String id);
 
@@ -54,6 +58,9 @@ abstract interface class AuditoriasDao {
 
   /// Marca `eliminada = true` (borrado lógico). Reto 3.
   Future<int> marcarEliminada(String id);
+
+  /// Restaura una auditoría anulada marcando `eliminada = false`. Reto 3.
+  Future<int> restaurar(String id);
 
   /// Elimina físicamente las filas de `oportunidades` de una auditoría.
   Future<int> borrarOportunidadesDe(String auditoriaId);
@@ -112,6 +119,21 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
     return _conOportunidades(filas, incluirEliminadas: incluirEliminadas);
   }
 
+  /// **Reto 1 (consigna 6):** filtra por rango directamente en SQL usando `where()`.
+  @override
+  Future<List<Auditoria>> listarPorRango(DateTime desde, DateTime hasta) async {
+    final List<db.Auditoria> filas = await (select(attachedDatabase.auditorias)
+          ..where((g.TablaAuditorias t) =>
+              t.eliminada.equals(false) &
+              t.fecha.isBiggerOrEqualValue(desde) &
+              t.fecha.isSmallerOrEqualValue(hasta))
+          ..orderBy(<OrderingTerm Function(g.TablaAuditorias)>[
+            (g.TablaAuditorias t) => OrderingTerm.desc(t.fecha),
+          ]))
+        .get();
+    return _conOportunidades(filas);
+  }
+
   @override
   Future<Auditoria?> buscarPorId(String id) async {
     final db.Auditoria? cabecera = await (select(attachedDatabase.auditorias)
@@ -158,12 +180,8 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
     );
   }
 
-  /// **Versión base del Reto 3.** Borrado lógico: la fila nunca se elimina
+  /// **Reto 3.** Borrado lógico: la fila nunca se elimina
   /// físicamente para no perder la trazabilidad que exige la norma.
-  ///
-  /// TODO(reto-3, mejora): implemente `restaurar(String id)` y
-  /// `listarEliminadas()`, y agregue una prueba que verifique que el borrado
-  /// lógico no rompe las claves foráneas del detalle.
   @override
   Future<int> marcarEliminada(String id) {
     return (update(attachedDatabase.auditorias)
@@ -171,6 +189,19 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
         .write(
       db.AuditoriasCompanion(
         eliminada: const Value<bool>(true),
+        actualizadoEn: Value<DateTime>(DateTime.now()),
+      ),
+    );
+  }
+
+  /// **Reto 3.** Restauración de una auditoría anulada.
+  @override
+  Future<int> restaurar(String id) {
+    return (update(attachedDatabase.auditorias)
+          ..where((g.TablaAuditorias t) => t.id.equals(id)))
+        .write(
+      db.AuditoriasCompanion(
+        eliminada: const Value<bool>(false),
         actualizadoEn: Value<DateTime>(DateTime.now()),
       ),
     );

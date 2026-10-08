@@ -36,6 +36,9 @@ class Oportunidades extends Table {
   /// Nota libre opcional del observador.
   TextColumn get observacion => text().nullable()();
 
+  /// Duración en segundos de la observación (Reto 4):
+  IntColumn get duracionSegundos => integer().nullable()();
+
   DateTimeColumn get registradoEn =>
       dateTime().withDefault(currentDateAndTime)();
 

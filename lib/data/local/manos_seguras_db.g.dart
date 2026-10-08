@@ -1259,6 +1259,64 @@ class $AuditoriasTable extends Auditorias
         type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _fechaInicioMeta = const VerificationMeta(
+    'fechaInicio',
+  );
+  @override
+  late final GeneratedColumn<DateTime> fechaInicio = GeneratedColumn<DateTime>(
+    'fecha_inicio',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _fechaFinMeta = const VerificationMeta(
+    'fechaFin',
+  );
+  @override
+  late final GeneratedColumn<DateTime> fechaFin = GeneratedColumn<DateTime>(
+    'fecha_fin',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _numeroCamasMeta = const VerificationMeta(
+    'numeroCamas',
+  );
+  @override
+  late final GeneratedColumn<int> numeroCamas = GeneratedColumn<int>(
+    'numero_camas',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _consentimientoVerbalMeta =
+      const VerificationMeta('consentimientoVerbal');
+  @override
+  late final GeneratedColumn<bool> consentimientoVerbal = GeneratedColumn<bool>(
+    'consentimiento_verbal',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("consentimiento_verbal" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _observacionGeneralMeta =
+      const VerificationMeta('observacionGeneral');
+  @override
+  late final GeneratedColumn<String> observacionGeneral =
+      GeneratedColumn<String>(
+        'observacion_general',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _creadoEnMeta = const VerificationMeta(
     'creadoEn',
   );
@@ -1297,6 +1355,11 @@ class $AuditoriasTable extends Auditorias
     estado,
     eliminada,
     sincronizadaEn,
+    fechaInicio,
+    fechaFin,
+    numeroCamas,
+    consentimientoVerbal,
+    observacionGeneral,
     creadoEn,
     actualizadoEn,
   ];
@@ -1412,6 +1475,48 @@ class $AuditoriasTable extends Auditorias
         ),
       );
     }
+    if (data.containsKey('fecha_inicio')) {
+      context.handle(
+        _fechaInicioMeta,
+        fechaInicio.isAcceptableOrUnknown(
+          data['fecha_inicio']!,
+          _fechaInicioMeta,
+        ),
+      );
+    }
+    if (data.containsKey('fecha_fin')) {
+      context.handle(
+        _fechaFinMeta,
+        fechaFin.isAcceptableOrUnknown(data['fecha_fin']!, _fechaFinMeta),
+      );
+    }
+    if (data.containsKey('numero_camas')) {
+      context.handle(
+        _numeroCamasMeta,
+        numeroCamas.isAcceptableOrUnknown(
+          data['numero_camas']!,
+          _numeroCamasMeta,
+        ),
+      );
+    }
+    if (data.containsKey('consentimiento_verbal')) {
+      context.handle(
+        _consentimientoVerbalMeta,
+        consentimientoVerbal.isAcceptableOrUnknown(
+          data['consentimiento_verbal']!,
+          _consentimientoVerbalMeta,
+        ),
+      );
+    }
+    if (data.containsKey('observacion_general')) {
+      context.handle(
+        _observacionGeneralMeta,
+        observacionGeneral.isAcceptableOrUnknown(
+          data['observacion_general']!,
+          _observacionGeneralMeta,
+        ),
+      );
+    }
     if (data.containsKey('creado_en')) {
       context.handle(
         _creadoEnMeta,
@@ -1480,6 +1585,26 @@ class $AuditoriasTable extends Auditorias
         DriftSqlType.dateTime,
         data['${effectivePrefix}sincronizada_en'],
       ),
+      fechaInicio: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}fecha_inicio'],
+      ),
+      fechaFin: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}fecha_fin'],
+      ),
+      numeroCamas: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}numero_camas'],
+      ),
+      consentimientoVerbal: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}consentimiento_verbal'],
+      ),
+      observacionGeneral: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}observacion_general'],
+      ),
       creadoEn: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}creado_en'],
@@ -1518,6 +1643,15 @@ class Auditoria extends DataClass implements Insertable<Auditoria> {
 
   /// Marca temporal del último envío exitoso al servidor.
   final DateTime? sincronizadaEn;
+
+  /// Campos requeridos por el formulario oficial (Reto 1):
+  final DateTime? fechaInicio;
+  final DateTime? fechaFin;
+  final int? numeroCamas;
+  final bool? consentimientoVerbal;
+
+  /// Observación general de la auditoría (Reto 4):
+  final String? observacionGeneral;
   final DateTime creadoEn;
   final DateTime actualizadoEn;
   const Auditoria({
@@ -1532,6 +1666,11 @@ class Auditoria extends DataClass implements Insertable<Auditoria> {
     required this.estado,
     required this.eliminada,
     this.sincronizadaEn,
+    this.fechaInicio,
+    this.fechaFin,
+    this.numeroCamas,
+    this.consentimientoVerbal,
+    this.observacionGeneral,
     required this.creadoEn,
     required this.actualizadoEn,
   });
@@ -1550,6 +1689,21 @@ class Auditoria extends DataClass implements Insertable<Auditoria> {
     map['eliminada'] = Variable<bool>(eliminada);
     if (!nullToAbsent || sincronizadaEn != null) {
       map['sincronizada_en'] = Variable<DateTime>(sincronizadaEn);
+    }
+    if (!nullToAbsent || fechaInicio != null) {
+      map['fecha_inicio'] = Variable<DateTime>(fechaInicio);
+    }
+    if (!nullToAbsent || fechaFin != null) {
+      map['fecha_fin'] = Variable<DateTime>(fechaFin);
+    }
+    if (!nullToAbsent || numeroCamas != null) {
+      map['numero_camas'] = Variable<int>(numeroCamas);
+    }
+    if (!nullToAbsent || consentimientoVerbal != null) {
+      map['consentimiento_verbal'] = Variable<bool>(consentimientoVerbal);
+    }
+    if (!nullToAbsent || observacionGeneral != null) {
+      map['observacion_general'] = Variable<String>(observacionGeneral);
     }
     map['creado_en'] = Variable<DateTime>(creadoEn);
     map['actualizado_en'] = Variable<DateTime>(actualizadoEn);
@@ -1571,6 +1725,21 @@ class Auditoria extends DataClass implements Insertable<Auditoria> {
       sincronizadaEn: sincronizadaEn == null && nullToAbsent
           ? const Value.absent()
           : Value(sincronizadaEn),
+      fechaInicio: fechaInicio == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fechaInicio),
+      fechaFin: fechaFin == null && nullToAbsent
+          ? const Value.absent()
+          : Value(fechaFin),
+      numeroCamas: numeroCamas == null && nullToAbsent
+          ? const Value.absent()
+          : Value(numeroCamas),
+      consentimientoVerbal: consentimientoVerbal == null && nullToAbsent
+          ? const Value.absent()
+          : Value(consentimientoVerbal),
+      observacionGeneral: observacionGeneral == null && nullToAbsent
+          ? const Value.absent()
+          : Value(observacionGeneral),
       creadoEn: Value(creadoEn),
       actualizadoEn: Value(actualizadoEn),
     );
@@ -1595,6 +1764,15 @@ class Auditoria extends DataClass implements Insertable<Auditoria> {
       estado: serializer.fromJson<String>(json['estado']),
       eliminada: serializer.fromJson<bool>(json['eliminada']),
       sincronizadaEn: serializer.fromJson<DateTime?>(json['sincronizadaEn']),
+      fechaInicio: serializer.fromJson<DateTime?>(json['fechaInicio']),
+      fechaFin: serializer.fromJson<DateTime?>(json['fechaFin']),
+      numeroCamas: serializer.fromJson<int?>(json['numeroCamas']),
+      consentimientoVerbal: serializer.fromJson<bool?>(
+        json['consentimientoVerbal'],
+      ),
+      observacionGeneral: serializer.fromJson<String?>(
+        json['observacionGeneral'],
+      ),
       creadoEn: serializer.fromJson<DateTime>(json['creadoEn']),
       actualizadoEn: serializer.fromJson<DateTime>(json['actualizadoEn']),
     );
@@ -1614,6 +1792,11 @@ class Auditoria extends DataClass implements Insertable<Auditoria> {
       'estado': serializer.toJson<String>(estado),
       'eliminada': serializer.toJson<bool>(eliminada),
       'sincronizadaEn': serializer.toJson<DateTime?>(sincronizadaEn),
+      'fechaInicio': serializer.toJson<DateTime?>(fechaInicio),
+      'fechaFin': serializer.toJson<DateTime?>(fechaFin),
+      'numeroCamas': serializer.toJson<int?>(numeroCamas),
+      'consentimientoVerbal': serializer.toJson<bool?>(consentimientoVerbal),
+      'observacionGeneral': serializer.toJson<String?>(observacionGeneral),
       'creadoEn': serializer.toJson<DateTime>(creadoEn),
       'actualizadoEn': serializer.toJson<DateTime>(actualizadoEn),
     };
@@ -1631,6 +1814,11 @@ class Auditoria extends DataClass implements Insertable<Auditoria> {
     String? estado,
     bool? eliminada,
     Value<DateTime?> sincronizadaEn = const Value.absent(),
+    Value<DateTime?> fechaInicio = const Value.absent(),
+    Value<DateTime?> fechaFin = const Value.absent(),
+    Value<int?> numeroCamas = const Value.absent(),
+    Value<bool?> consentimientoVerbal = const Value.absent(),
+    Value<String?> observacionGeneral = const Value.absent(),
     DateTime? creadoEn,
     DateTime? actualizadoEn,
   }) => Auditoria(
@@ -1647,6 +1835,15 @@ class Auditoria extends DataClass implements Insertable<Auditoria> {
     sincronizadaEn: sincronizadaEn.present
         ? sincronizadaEn.value
         : this.sincronizadaEn,
+    fechaInicio: fechaInicio.present ? fechaInicio.value : this.fechaInicio,
+    fechaFin: fechaFin.present ? fechaFin.value : this.fechaFin,
+    numeroCamas: numeroCamas.present ? numeroCamas.value : this.numeroCamas,
+    consentimientoVerbal: consentimientoVerbal.present
+        ? consentimientoVerbal.value
+        : this.consentimientoVerbal,
+    observacionGeneral: observacionGeneral.present
+        ? observacionGeneral.value
+        : this.observacionGeneral,
     creadoEn: creadoEn ?? this.creadoEn,
     actualizadoEn: actualizadoEn ?? this.actualizadoEn,
   );
@@ -1677,6 +1874,19 @@ class Auditoria extends DataClass implements Insertable<Auditoria> {
       sincronizadaEn: data.sincronizadaEn.present
           ? data.sincronizadaEn.value
           : this.sincronizadaEn,
+      fechaInicio: data.fechaInicio.present
+          ? data.fechaInicio.value
+          : this.fechaInicio,
+      fechaFin: data.fechaFin.present ? data.fechaFin.value : this.fechaFin,
+      numeroCamas: data.numeroCamas.present
+          ? data.numeroCamas.value
+          : this.numeroCamas,
+      consentimientoVerbal: data.consentimientoVerbal.present
+          ? data.consentimientoVerbal.value
+          : this.consentimientoVerbal,
+      observacionGeneral: data.observacionGeneral.present
+          ? data.observacionGeneral.value
+          : this.observacionGeneral,
       creadoEn: data.creadoEn.present ? data.creadoEn.value : this.creadoEn,
       actualizadoEn: data.actualizadoEn.present
           ? data.actualizadoEn.value
@@ -1698,6 +1908,11 @@ class Auditoria extends DataClass implements Insertable<Auditoria> {
           ..write('estado: $estado, ')
           ..write('eliminada: $eliminada, ')
           ..write('sincronizadaEn: $sincronizadaEn, ')
+          ..write('fechaInicio: $fechaInicio, ')
+          ..write('fechaFin: $fechaFin, ')
+          ..write('numeroCamas: $numeroCamas, ')
+          ..write('consentimientoVerbal: $consentimientoVerbal, ')
+          ..write('observacionGeneral: $observacionGeneral, ')
           ..write('creadoEn: $creadoEn, ')
           ..write('actualizadoEn: $actualizadoEn')
           ..write(')'))
@@ -1717,6 +1932,11 @@ class Auditoria extends DataClass implements Insertable<Auditoria> {
     estado,
     eliminada,
     sincronizadaEn,
+    fechaInicio,
+    fechaFin,
+    numeroCamas,
+    consentimientoVerbal,
+    observacionGeneral,
     creadoEn,
     actualizadoEn,
   );
@@ -1735,6 +1955,11 @@ class Auditoria extends DataClass implements Insertable<Auditoria> {
           other.estado == this.estado &&
           other.eliminada == this.eliminada &&
           other.sincronizadaEn == this.sincronizadaEn &&
+          other.fechaInicio == this.fechaInicio &&
+          other.fechaFin == this.fechaFin &&
+          other.numeroCamas == this.numeroCamas &&
+          other.consentimientoVerbal == this.consentimientoVerbal &&
+          other.observacionGeneral == this.observacionGeneral &&
           other.creadoEn == this.creadoEn &&
           other.actualizadoEn == this.actualizadoEn);
 }
@@ -1751,6 +1976,11 @@ class AuditoriasCompanion extends UpdateCompanion<Auditoria> {
   final Value<String> estado;
   final Value<bool> eliminada;
   final Value<DateTime?> sincronizadaEn;
+  final Value<DateTime?> fechaInicio;
+  final Value<DateTime?> fechaFin;
+  final Value<int?> numeroCamas;
+  final Value<bool?> consentimientoVerbal;
+  final Value<String?> observacionGeneral;
   final Value<DateTime> creadoEn;
   final Value<DateTime> actualizadoEn;
   final Value<int> rowid;
@@ -1766,6 +1996,11 @@ class AuditoriasCompanion extends UpdateCompanion<Auditoria> {
     this.estado = const Value.absent(),
     this.eliminada = const Value.absent(),
     this.sincronizadaEn = const Value.absent(),
+    this.fechaInicio = const Value.absent(),
+    this.fechaFin = const Value.absent(),
+    this.numeroCamas = const Value.absent(),
+    this.consentimientoVerbal = const Value.absent(),
+    this.observacionGeneral = const Value.absent(),
     this.creadoEn = const Value.absent(),
     this.actualizadoEn = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1782,6 +2017,11 @@ class AuditoriasCompanion extends UpdateCompanion<Auditoria> {
     this.estado = const Value.absent(),
     this.eliminada = const Value.absent(),
     this.sincronizadaEn = const Value.absent(),
+    this.fechaInicio = const Value.absent(),
+    this.fechaFin = const Value.absent(),
+    this.numeroCamas = const Value.absent(),
+    this.consentimientoVerbal = const Value.absent(),
+    this.observacionGeneral = const Value.absent(),
     this.creadoEn = const Value.absent(),
     this.actualizadoEn = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1805,6 +2045,11 @@ class AuditoriasCompanion extends UpdateCompanion<Auditoria> {
     Expression<String>? estado,
     Expression<bool>? eliminada,
     Expression<DateTime>? sincronizadaEn,
+    Expression<DateTime>? fechaInicio,
+    Expression<DateTime>? fechaFin,
+    Expression<int>? numeroCamas,
+    Expression<bool>? consentimientoVerbal,
+    Expression<String>? observacionGeneral,
     Expression<DateTime>? creadoEn,
     Expression<DateTime>? actualizadoEn,
     Expression<int>? rowid,
@@ -1822,6 +2067,12 @@ class AuditoriasCompanion extends UpdateCompanion<Auditoria> {
       if (estado != null) 'estado': estado,
       if (eliminada != null) 'eliminada': eliminada,
       if (sincronizadaEn != null) 'sincronizada_en': sincronizadaEn,
+      if (fechaInicio != null) 'fecha_inicio': fechaInicio,
+      if (fechaFin != null) 'fecha_fin': fechaFin,
+      if (numeroCamas != null) 'numero_camas': numeroCamas,
+      if (consentimientoVerbal != null)
+        'consentimiento_verbal': consentimientoVerbal,
+      if (observacionGeneral != null) 'observacion_general': observacionGeneral,
       if (creadoEn != null) 'creado_en': creadoEn,
       if (actualizadoEn != null) 'actualizado_en': actualizadoEn,
       if (rowid != null) 'rowid': rowid,
@@ -1840,6 +2091,11 @@ class AuditoriasCompanion extends UpdateCompanion<Auditoria> {
     Value<String>? estado,
     Value<bool>? eliminada,
     Value<DateTime?>? sincronizadaEn,
+    Value<DateTime?>? fechaInicio,
+    Value<DateTime?>? fechaFin,
+    Value<int?>? numeroCamas,
+    Value<bool?>? consentimientoVerbal,
+    Value<String?>? observacionGeneral,
     Value<DateTime>? creadoEn,
     Value<DateTime>? actualizadoEn,
     Value<int>? rowid,
@@ -1857,6 +2113,11 @@ class AuditoriasCompanion extends UpdateCompanion<Auditoria> {
       estado: estado ?? this.estado,
       eliminada: eliminada ?? this.eliminada,
       sincronizadaEn: sincronizadaEn ?? this.sincronizadaEn,
+      fechaInicio: fechaInicio ?? this.fechaInicio,
+      fechaFin: fechaFin ?? this.fechaFin,
+      numeroCamas: numeroCamas ?? this.numeroCamas,
+      consentimientoVerbal: consentimientoVerbal ?? this.consentimientoVerbal,
+      observacionGeneral: observacionGeneral ?? this.observacionGeneral,
       creadoEn: creadoEn ?? this.creadoEn,
       actualizadoEn: actualizadoEn ?? this.actualizadoEn,
       rowid: rowid ?? this.rowid,
@@ -1901,6 +2162,21 @@ class AuditoriasCompanion extends UpdateCompanion<Auditoria> {
     if (sincronizadaEn.present) {
       map['sincronizada_en'] = Variable<DateTime>(sincronizadaEn.value);
     }
+    if (fechaInicio.present) {
+      map['fecha_inicio'] = Variable<DateTime>(fechaInicio.value);
+    }
+    if (fechaFin.present) {
+      map['fecha_fin'] = Variable<DateTime>(fechaFin.value);
+    }
+    if (numeroCamas.present) {
+      map['numero_camas'] = Variable<int>(numeroCamas.value);
+    }
+    if (consentimientoVerbal.present) {
+      map['consentimiento_verbal'] = Variable<bool>(consentimientoVerbal.value);
+    }
+    if (observacionGeneral.present) {
+      map['observacion_general'] = Variable<String>(observacionGeneral.value);
+    }
     if (creadoEn.present) {
       map['creado_en'] = Variable<DateTime>(creadoEn.value);
     }
@@ -1927,6 +2203,11 @@ class AuditoriasCompanion extends UpdateCompanion<Auditoria> {
           ..write('estado: $estado, ')
           ..write('eliminada: $eliminada, ')
           ..write('sincronizadaEn: $sincronizadaEn, ')
+          ..write('fechaInicio: $fechaInicio, ')
+          ..write('fechaFin: $fechaFin, ')
+          ..write('numeroCamas: $numeroCamas, ')
+          ..write('consentimientoVerbal: $consentimientoVerbal, ')
+          ..write('observacionGeneral: $observacionGeneral, ')
           ..write('creadoEn: $creadoEn, ')
           ..write('actualizadoEn: $actualizadoEn, ')
           ..write('rowid: $rowid')
@@ -2010,6 +2291,17 @@ class $OportunidadesTable extends Oportunidades
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _duracionSegundosMeta = const VerificationMeta(
+    'duracionSegundos',
+  );
+  @override
+  late final GeneratedColumn<int> duracionSegundos = GeneratedColumn<int>(
+    'duracion_segundos',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _registradoEnMeta = const VerificationMeta(
     'registradoEn',
   );
@@ -2030,6 +2322,7 @@ class $OportunidadesTable extends Oportunidades
     momentoClave,
     accionClave,
     observacion,
+    duracionSegundos,
     registradoEn,
   ];
   @override
@@ -2097,6 +2390,15 @@ class $OportunidadesTable extends Oportunidades
         ),
       );
     }
+    if (data.containsKey('duracion_segundos')) {
+      context.handle(
+        _duracionSegundosMeta,
+        duracionSegundos.isAcceptableOrUnknown(
+          data['duracion_segundos']!,
+          _duracionSegundosMeta,
+        ),
+      );
+    }
     if (data.containsKey('registrado_en')) {
       context.handle(
         _registradoEnMeta,
@@ -2143,6 +2445,10 @@ class $OportunidadesTable extends Oportunidades
         DriftSqlType.string,
         data['${effectivePrefix}observacion'],
       ),
+      duracionSegundos: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duracion_segundos'],
+      ),
       registradoEn: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}registrado_en'],
@@ -2171,6 +2477,9 @@ class Oportunidade extends DataClass implements Insertable<Oportunidade> {
 
   /// Nota libre opcional del observador.
   final String? observacion;
+
+  /// Duración en segundos de la observación (Reto 4):
+  final int? duracionSegundos;
   final DateTime registradoEn;
   const Oportunidade({
     required this.id,
@@ -2179,6 +2488,7 @@ class Oportunidade extends DataClass implements Insertable<Oportunidade> {
     required this.momentoClave,
     required this.accionClave,
     this.observacion,
+    this.duracionSegundos,
     required this.registradoEn,
   });
   @override
@@ -2191,6 +2501,9 @@ class Oportunidade extends DataClass implements Insertable<Oportunidade> {
     map['accion_clave'] = Variable<String>(accionClave);
     if (!nullToAbsent || observacion != null) {
       map['observacion'] = Variable<String>(observacion);
+    }
+    if (!nullToAbsent || duracionSegundos != null) {
+      map['duracion_segundos'] = Variable<int>(duracionSegundos);
     }
     map['registrado_en'] = Variable<DateTime>(registradoEn);
     return map;
@@ -2206,6 +2519,9 @@ class Oportunidade extends DataClass implements Insertable<Oportunidade> {
       observacion: observacion == null && nullToAbsent
           ? const Value.absent()
           : Value(observacion),
+      duracionSegundos: duracionSegundos == null && nullToAbsent
+          ? const Value.absent()
+          : Value(duracionSegundos),
       registradoEn: Value(registradoEn),
     );
   }
@@ -2222,6 +2538,7 @@ class Oportunidade extends DataClass implements Insertable<Oportunidade> {
       momentoClave: serializer.fromJson<String>(json['momentoClave']),
       accionClave: serializer.fromJson<String>(json['accionClave']),
       observacion: serializer.fromJson<String?>(json['observacion']),
+      duracionSegundos: serializer.fromJson<int?>(json['duracionSegundos']),
       registradoEn: serializer.fromJson<DateTime>(json['registradoEn']),
     );
   }
@@ -2235,6 +2552,7 @@ class Oportunidade extends DataClass implements Insertable<Oportunidade> {
       'momentoClave': serializer.toJson<String>(momentoClave),
       'accionClave': serializer.toJson<String>(accionClave),
       'observacion': serializer.toJson<String?>(observacion),
+      'duracionSegundos': serializer.toJson<int?>(duracionSegundos),
       'registradoEn': serializer.toJson<DateTime>(registradoEn),
     };
   }
@@ -2246,6 +2564,7 @@ class Oportunidade extends DataClass implements Insertable<Oportunidade> {
     String? momentoClave,
     String? accionClave,
     Value<String?> observacion = const Value.absent(),
+    Value<int?> duracionSegundos = const Value.absent(),
     DateTime? registradoEn,
   }) => Oportunidade(
     id: id ?? this.id,
@@ -2254,6 +2573,9 @@ class Oportunidade extends DataClass implements Insertable<Oportunidade> {
     momentoClave: momentoClave ?? this.momentoClave,
     accionClave: accionClave ?? this.accionClave,
     observacion: observacion.present ? observacion.value : this.observacion,
+    duracionSegundos: duracionSegundos.present
+        ? duracionSegundos.value
+        : this.duracionSegundos,
     registradoEn: registradoEn ?? this.registradoEn,
   );
   Oportunidade copyWithCompanion(OportunidadesCompanion data) {
@@ -2272,6 +2594,9 @@ class Oportunidade extends DataClass implements Insertable<Oportunidade> {
       observacion: data.observacion.present
           ? data.observacion.value
           : this.observacion,
+      duracionSegundos: data.duracionSegundos.present
+          ? data.duracionSegundos.value
+          : this.duracionSegundos,
       registradoEn: data.registradoEn.present
           ? data.registradoEn.value
           : this.registradoEn,
@@ -2287,6 +2612,7 @@ class Oportunidade extends DataClass implements Insertable<Oportunidade> {
           ..write('momentoClave: $momentoClave, ')
           ..write('accionClave: $accionClave, ')
           ..write('observacion: $observacion, ')
+          ..write('duracionSegundos: $duracionSegundos, ')
           ..write('registradoEn: $registradoEn')
           ..write(')'))
         .toString();
@@ -2300,6 +2626,7 @@ class Oportunidade extends DataClass implements Insertable<Oportunidade> {
     momentoClave,
     accionClave,
     observacion,
+    duracionSegundos,
     registradoEn,
   );
   @override
@@ -2312,6 +2639,7 @@ class Oportunidade extends DataClass implements Insertable<Oportunidade> {
           other.momentoClave == this.momentoClave &&
           other.accionClave == this.accionClave &&
           other.observacion == this.observacion &&
+          other.duracionSegundos == this.duracionSegundos &&
           other.registradoEn == this.registradoEn);
 }
 
@@ -2322,6 +2650,7 @@ class OportunidadesCompanion extends UpdateCompanion<Oportunidade> {
   final Value<String> momentoClave;
   final Value<String> accionClave;
   final Value<String?> observacion;
+  final Value<int?> duracionSegundos;
   final Value<DateTime> registradoEn;
   const OportunidadesCompanion({
     this.id = const Value.absent(),
@@ -2330,6 +2659,7 @@ class OportunidadesCompanion extends UpdateCompanion<Oportunidade> {
     this.momentoClave = const Value.absent(),
     this.accionClave = const Value.absent(),
     this.observacion = const Value.absent(),
+    this.duracionSegundos = const Value.absent(),
     this.registradoEn = const Value.absent(),
   });
   OportunidadesCompanion.insert({
@@ -2339,6 +2669,7 @@ class OportunidadesCompanion extends UpdateCompanion<Oportunidade> {
     required String momentoClave,
     required String accionClave,
     this.observacion = const Value.absent(),
+    this.duracionSegundos = const Value.absent(),
     this.registradoEn = const Value.absent(),
   }) : auditoriaId = Value(auditoriaId),
        numero = Value(numero),
@@ -2351,6 +2682,7 @@ class OportunidadesCompanion extends UpdateCompanion<Oportunidade> {
     Expression<String>? momentoClave,
     Expression<String>? accionClave,
     Expression<String>? observacion,
+    Expression<int>? duracionSegundos,
     Expression<DateTime>? registradoEn,
   }) {
     return RawValuesInsertable({
@@ -2360,6 +2692,7 @@ class OportunidadesCompanion extends UpdateCompanion<Oportunidade> {
       if (momentoClave != null) 'momento_clave': momentoClave,
       if (accionClave != null) 'accion_clave': accionClave,
       if (observacion != null) 'observacion': observacion,
+      if (duracionSegundos != null) 'duracion_segundos': duracionSegundos,
       if (registradoEn != null) 'registrado_en': registradoEn,
     });
   }
@@ -2371,6 +2704,7 @@ class OportunidadesCompanion extends UpdateCompanion<Oportunidade> {
     Value<String>? momentoClave,
     Value<String>? accionClave,
     Value<String?>? observacion,
+    Value<int?>? duracionSegundos,
     Value<DateTime>? registradoEn,
   }) {
     return OportunidadesCompanion(
@@ -2380,6 +2714,7 @@ class OportunidadesCompanion extends UpdateCompanion<Oportunidade> {
       momentoClave: momentoClave ?? this.momentoClave,
       accionClave: accionClave ?? this.accionClave,
       observacion: observacion ?? this.observacion,
+      duracionSegundos: duracionSegundos ?? this.duracionSegundos,
       registradoEn: registradoEn ?? this.registradoEn,
     );
   }
@@ -2405,6 +2740,9 @@ class OportunidadesCompanion extends UpdateCompanion<Oportunidade> {
     if (observacion.present) {
       map['observacion'] = Variable<String>(observacion.value);
     }
+    if (duracionSegundos.present) {
+      map['duracion_segundos'] = Variable<int>(duracionSegundos.value);
+    }
     if (registradoEn.present) {
       map['registrado_en'] = Variable<DateTime>(registradoEn.value);
     }
@@ -2420,6 +2758,7 @@ class OportunidadesCompanion extends UpdateCompanion<Oportunidade> {
           ..write('momentoClave: $momentoClave, ')
           ..write('accionClave: $accionClave, ')
           ..write('observacion: $observacion, ')
+          ..write('duracionSegundos: $duracionSegundos, ')
           ..write('registradoEn: $registradoEn')
           ..write(')'))
         .toString();

@@ -16,6 +16,7 @@ class OportunidadRegistro {
     required this.momento,
     required this.accion,
     this.observacion,
+    this.duracionSegundos,
   });
 
   final int? id;
@@ -27,6 +28,9 @@ class OportunidadRegistro {
   /// Nota libre del observador (campo opcional del XLSForm, por ejemplo
   /// "se colocó guantes sin realizar higiene previa").
   final String? observacion;
+
+  /// Duración en segundos de la oportunidad (Reto 4).
+  final int? duracionSegundos;
 
   /// Regla de negocio delegada en el catálogo [Accion].
   bool get cumplio => accion.esCumplimiento;
@@ -41,6 +45,7 @@ class OportunidadRegistro {
     Momento? momento,
     Accion? accion,
     String? observacion,
+    int? duracionSegundos,
   }) {
     return OportunidadRegistro(
       id: id ?? this.id,
@@ -49,6 +54,7 @@ class OportunidadRegistro {
       momento: momento ?? this.momento,
       accion: accion ?? this.accion,
       observacion: observacion ?? this.observacion,
+      duracionSegundos: duracionSegundos ?? this.duracionSegundos,
     );
   }
 

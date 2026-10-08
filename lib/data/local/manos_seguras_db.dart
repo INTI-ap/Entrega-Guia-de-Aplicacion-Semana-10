@@ -59,27 +59,11 @@ class ManosSegurasDb extends _$ManosSegurasDb {
   ManosSegurasDb(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   /// Estrategia de migración.
   ///
-  /// **Reto 4.** Aquí se documenta la evolución del esquema. La versión 1
-  /// crea todo desde cero. Para publicar una versión 2, el equipo deberá:
-  ///
-  ///  1. modificar la tabla correspondiente (por ejemplo, agregar
-  ///     `observacionGeneral` a `Auditorias`);
-  ///  2. subir [schemaVersion] a 2;
-  ///  3. implementar `onUpgrade` con la migración incremental
-  ///     **sin perder las auditorías ya guardadas**;
-  ///  4. agregar la prueba `test/migracion_v1_v2_test.dart` que abra una
-  ///     base v1 con datos, ejecute la migración y verifique que no se
-  ///     perdió nada.
-  ///
-  /// La versión que se entrega **no rompe** al usuario: si la base se crea
-  /// desde cero, `onCreate` la construye completa y `onUpgrade` nunca se
-  /// ejecuta. El `throw` de `onUpgrade` es intencional: obliga a escribir la
-  /// migración antes de subir la versión, en lugar de permitir que la
-  /// aplicación arranque con un esquema a medias.
+  /// **Reto 4.** Migración incremental v1 -> v2 sin pérdida de datos.
   @override
   MigrationStrategy get migration {
     return MigrationStrategy(
@@ -87,17 +71,19 @@ class ManosSegurasDb extends _$ManosSegurasDb {
         await m.createAll();
       },
       onUpgrade: (Migrator m, int desde, int hasta) async {
-        // TODO(reto-4): implemente la migración incremental.
-        //
-        // Plantilla de partida (descomente y adapte cuando exista la v2):
-        //
-        //   if (desde < 2) {
-        //     await m.addColumn(auditorias, auditorias.observacionGeneral);
-        //   }
-        throw UnimplementedError(
-          'Migración de la versión $desde a la $hasta sin implementar. '
-          'Ver el Reto 4 de la Guía de Aplicación N.° 07.',
-        );
+        if (desde < 2) {
+          await m.addColumn(auditorias, auditorias.fechaInicio);
+          await m.addColumn(auditorias, auditorias.fechaFin);
+          await m.addColumn(auditorias, auditorias.numeroCamas);
+          await m.addColumn(auditorias, auditorias.consentimientoVerbal);
+          await m.addColumn(auditorias, auditorias.observacionGeneral);
+          await m.addColumn(oportunidades, oportunidades.duracionSegundos);
+
+          await customStatement(
+            "UPDATE auditorias SET observacion_general = '' "
+            "WHERE observacion_general IS NULL",
+          );
+        }
       },
       beforeOpen: (OpeningDetails detalles) async {
         // `PRAGMA foreign_keys = ON` NO viene activado por omisión en
