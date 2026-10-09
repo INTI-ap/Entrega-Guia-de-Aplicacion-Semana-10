@@ -44,6 +44,15 @@ class PantallaBienvenida extends StatelessWidget {
               SizedBox(
                 height: 48,
                 child: OutlinedButton.icon(
+                  onPressed: () => context.go('/indicadores'),
+                  icon: const Icon(Icons.public_outlined),
+                  label: const Text('Contexto nacional'),
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 48,
+                child: OutlinedButton.icon(
                   onPressed: () => context.go('/diagnostico'),
                   icon: const Icon(Icons.storage_outlined),
                   label: const Text('Diagnóstico de la base local'),
