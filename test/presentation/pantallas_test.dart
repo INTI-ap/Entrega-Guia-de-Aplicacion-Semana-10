@@ -13,6 +13,7 @@ import 'package:manos_seguras/presentation/di.dart';
 import 'package:manos_seguras/presentation/pantallas/pantalla_auditoria_detalle.dart';
 import 'package:manos_seguras/presentation/pantallas/pantalla_auditorias.dart';
 import 'package:manos_seguras/presentation/pantallas/pantalla_bienvenida.dart';
+import 'package:manos_seguras/presentation/pantallas/pantalla_editar_auditoria.dart';
 import 'package:manos_seguras/presentation/pantallas/pantalla_oportunidades.dart';
 import 'package:manos_seguras/presentation/widgets/tarjetas.dart';
 
@@ -39,34 +40,89 @@ void main() {
     getIt
       ..registerSingleton<AuditoriaRepository>(repositorio)
       ..registerSingleton<PreferenciasRepository>(PreferenciasEnMemoria())
-      ..registerSingleton<TemaApp>(
-        TemaApp(getIt<PreferenciasRepository>()),
-      );
+      ..registerSingleton<TemaApp>(TemaApp(getIt<PreferenciasRepository>()));
   });
 
   tearDown(() async {
     await getIt.reset();
   });
 
-  testWidgets('la pantalla de bienvenida muestra los 5 Momentos',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: PantallaBienvenida()),
+  testWidgets(
+    'Reto 3: formulario cargado guarda cambios y conserva oportunidades',
+    (tester) async {
+      final anterior = await repositorio.obtenerPorId('aud-1');
+      await tester.pumpWidget(
+        MaterialApp(home: PantallaEditarAuditoria(auditoria: anterior)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(anterior.observadorNombre), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Observación general'),
+        'Nota corregida',
+      );
+      await tester.ensureVisible(find.text('Guardar cambios'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Guardar cambios'));
+      await tester.pumpAndSettle();
+      final actual = await repositorio.obtenerPorId('aud-1');
+      expect(actual.observacionGeneral, 'Nota corregida');
+      expect(actual.oportunidades, anterior.oportunidades);
+      expect(actual.fecha, anterior.fecha);
+    },
+  );
+
+  testWidgets('Reto 3: papelera muestra solamente anuladas con restauración', (
+    tester,
+  ) async {
+    await repositorio.guardar(
+      _auditoria(id: 'anulada').copyWith(eliminada: true),
     );
+    await tester.pumpWidget(
+      const MaterialApp(home: PantallaAuditorias(papelera: true)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(TarjetaAuditoria), findsOneWidget);
+    expect(
+      tester
+          .widget<TarjetaAuditoria>(find.byType(TarjetaAuditoria))
+          .auditoria
+          .id,
+      'anulada',
+    );
+    await tester.ensureVisible(find.text('Restaurar'));
+    await tester.tap(find.text('Restaurar'));
+    await tester.pumpAndSettle();
+    expect((await repositorio.obtenerPorId('anulada')).eliminada, isFalse);
+  });
+
+  testWidgets('Reto 3: duplicar desde la tarjeta crea otra auditoría', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: PantallaAuditorias()));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Duplicar'));
+    await tester.tap(find.text('Duplicar'));
+    await tester.pumpAndSettle();
+    expect(await repositorio.listarAuditorias(), hasLength(2));
+    expect(find.text('Auditoría duplicada como borrador.'), findsOneWidget);
+  });
+
+  testWidgets('la pantalla de bienvenida muestra los 5 Momentos', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: PantallaBienvenida()));
 
     // "ManosSeguras" aparece en el AppBar y en el encabezado.
     expect(find.text('ManosSeguras'), findsWidgets);
     expect(find.text('Los 5 Momentos'), findsOneWidget);
     expect(find.text(Momento.antesDeTocarPaciente.etiqueta), findsOneWidget);
-    expect(
-      find.text(Momento.despuesEntornoPaciente.etiqueta),
-      findsOneWidget,
-    );
+    expect(find.text(Momento.despuesEntornoPaciente.etiqueta), findsOneWidget);
     expect(find.text('Comenzar auditoría'), findsOneWidget);
   });
 
-  testWidgets('la tarjeta de auditoría muestra el porcentaje de adherencia',
-      (WidgetTester tester) async {
+  testWidgets('la tarjeta de auditoría muestra el porcentaje de adherencia', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -81,8 +137,9 @@ void main() {
     expect(find.text('5 oportunidades'), findsOneWidget);
   });
 
-  testWidgets('la tarjeta de auditoría sin datos muestra "Sin datos"',
-      (WidgetTester tester) async {
+  testWidgets('la tarjeta de auditoría sin datos muestra "Sin datos"', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -96,54 +153,48 @@ void main() {
     expect(find.text('Sin datos'), findsOneWidget);
   });
 
-  testWidgets('la pantalla de auditorías lista lo que devuelve el repositorio',
-      (WidgetTester tester) async {
-    await tester.pumpWidget(
-      const MaterialApp(home: PantallaAuditorias()),
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'la pantalla de auditorías lista lo que devuelve el repositorio',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(const MaterialApp(home: PantallaAuditorias()));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Resumen local (calculado en SQL)'), findsOneWidget);
-    expect(find.text('Hospital Regional del Cusco'), findsOneWidget);
-    expect(find.text('Detalle por auditoría'), findsOneWidget);
-  });
+      expect(find.text('Resumen local'), findsOneWidget);
+      expect(find.text('Hospital Regional del Cusco'), findsOneWidget);
+      expect(find.text('Detalle por auditoría'), findsOneWidget);
+    },
+  );
 
-  testWidgets('la pantalla de auditorías muestra el estado vacío',
-      (WidgetTester tester) async {
+  testWidgets('la pantalla de auditorías muestra el estado vacío', (
+    WidgetTester tester,
+  ) async {
     repositorio = RepositorioAuditoriasEnMemoria();
     getIt.unregister<AuditoriaRepository>();
     getIt.registerSingleton<AuditoriaRepository>(repositorio);
 
-    await tester.pumpWidget(
-      const MaterialApp(home: PantallaAuditorias()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: PantallaAuditorias()));
     await tester.pumpAndSettle();
 
-    expect(
-      find.textContaining('Todavía no hay auditorías'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Todavía no hay auditorías'), findsOneWidget);
     expect(find.text('Capturar auditoría'), findsOneWidget);
   });
 
-  testWidgets('la pantalla de auditorías muestra el estado de error',
-      (WidgetTester tester) async {
+  testWidgets('la pantalla de auditorías muestra el estado de error', (
+    WidgetTester tester,
+  ) async {
     repositorio.falla = true;
 
-    await tester.pumpWidget(
-      const MaterialApp(home: PantallaAuditorias()),
-    );
+    await tester.pumpWidget(const MaterialApp(home: PantallaAuditorias()));
     await tester.pumpAndSettle();
 
     expect(find.text('Reintentar'), findsOneWidget);
   });
 
-  testWidgets('el detalle carga la auditoría por su id',
-      (WidgetTester tester) async {
+  testWidgets('el detalle carga la auditoría por su id', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: PantallaAuditoriaDetalle(auditoriaId: 'aud-1'),
-      ),
+      const MaterialApp(home: PantallaAuditoriaDetalle(auditoriaId: 'aud-1')),
     );
     await tester.pumpAndSettle();
 
@@ -153,8 +204,9 @@ void main() {
     expect(find.text('Oportunidad 05'), findsOneWidget);
   });
 
-  testWidgets('el detalle muestra el error controlado si el id no existe',
-      (WidgetTester tester) async {
+  testWidgets('el detalle muestra el error controlado si el id no existe', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: PantallaAuditoriaDetalle(auditoriaId: 'no-existe'),
@@ -165,8 +217,9 @@ void main() {
     expect(find.textContaining('No existe la auditoría'), findsWidgets);
   });
 
-  testWidgets('registrar oportunidades y guardar llama al repositorio',
-      (WidgetTester tester) async {
+  testWidgets('registrar oportunidades y guardar llama al repositorio', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(_appConRouter(const PantallaOportunidades()));
     await tester.pumpAndSettle();
 
@@ -178,7 +231,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Oportunidad 01'), findsOneWidget);
-    expect(find.textContaining('1 de 1 oportunidades cumplidas'), findsOneWidget);
+    expect(
+      find.textContaining('1 de 1 oportunidades cumplidas'),
+      findsOneWidget,
+    );
 
     // Guardar debe llegar al repositorio. El botón queda al final de una
     // pantalla con scroll, así que hay que asegurarse de que esté visible.
@@ -189,13 +245,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repositorio.llamadasAGuardar, 1);
-    final List<Auditoria> guardadas =
-        await repositorio.listarAuditorias();
+    final List<Auditoria> guardadas = await repositorio.listarAuditorias();
     expect(guardadas, hasLength(2)); // la inicial + la nueva
   });
 
-  testWidgets('guardar sin oportunidades muestra un aviso y no persiste',
-      (WidgetTester tester) async {
+  testWidgets('guardar sin oportunidades muestra un aviso y no persiste', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(_appConRouter(const PantallaOportunidades()));
     await tester.pumpAndSettle();
 
@@ -229,9 +285,8 @@ Widget _appConRouter(Widget pantalla) {
       ),
       GoRoute(
         path: '/auditorias/:id',
-        builder: (_, GoRouterState state) => Scaffold(
-          body: Text('detalle ${state.pathParameters['id']}'),
-        ),
+        builder: (_, GoRouterState state) =>
+            Scaffold(body: Text('detalle ${state.pathParameters['id']}')),
       ),
     ],
   );
@@ -242,10 +297,7 @@ Widget _appConRouter(Widget pantalla) {
 // Datos auxiliares
 // ---------------------------------------------------------------------
 
-Auditoria _auditoria({
-  required String id,
-  bool conOportunidades = true,
-}) {
+Auditoria _auditoria({required String id, bool conOportunidades = true}) {
   final List<OportunidadRegistro> oportunidades = conOportunidades
       ? List<OportunidadRegistro>.generate(
           Momento.values.length,

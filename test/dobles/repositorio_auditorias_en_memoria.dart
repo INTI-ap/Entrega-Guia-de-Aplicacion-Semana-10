@@ -13,7 +13,7 @@ import 'package:manos_seguras/domain/repositorios/auditoria_repository.dart';
 /// Se usa en `test/presentation/pantallas_test.dart`.
 class RepositorioAuditoriasEnMemoria implements AuditoriaRepository {
   RepositorioAuditoriasEnMemoria({List<Auditoria>? iniciales})
-      : _auditorias = List<Auditoria>.of(iniciales ?? const <Auditoria>[]);
+    : _auditorias = List<Auditoria>.of(iniciales ?? const <Auditoria>[]);
 
   final List<Auditoria> _auditorias;
 
@@ -44,10 +44,12 @@ class RepositorioAuditoriasEnMemoria implements AuditoriaRepository {
   Future<List<Auditoria>> listarPorRango(DateTime desde, DateTime hasta) async {
     _verificarFallo();
     return _auditorias
-        .where((Auditoria a) =>
-            !a.eliminada &&
-            !a.fecha.isBefore(desde) &&
-            !a.fecha.isAfter(hasta))
+        .where(
+          (Auditoria a) =>
+              !a.eliminada &&
+              !a.fecha.isBefore(desde) &&
+              !a.fecha.isAfter(hasta),
+        )
         .toList();
   }
 
@@ -83,7 +85,8 @@ class RepositorioAuditoriasEnMemoria implements AuditoriaRepository {
   Future<String> guardar(Auditoria auditoria) async {
     llamadasAGuardar++;
     _verificarFallo();
-    final String id = auditoria.id.isEmpty ? 'id-${_auditorias.length + 1}'
+    final String id = auditoria.id.isEmpty
+        ? 'id-${_auditorias.length + 1}'
         : auditoria.id;
     _auditorias.add(auditoria.copyWith(id: id));
     return id;
@@ -92,8 +95,9 @@ class RepositorioAuditoriasEnMemoria implements AuditoriaRepository {
   @override
   Future<void> actualizar(Auditoria auditoria) async {
     _verificarFallo();
-    final int indice =
-        _auditorias.indexWhere((Auditoria a) => a.id == auditoria.id);
+    final int indice = _auditorias.indexWhere(
+      (Auditoria a) => a.id == auditoria.id,
+    );
     if (indice < 0) {
       throw FalloNoEncontrado('No existe la auditoría ${auditoria.id}.');
     }
@@ -121,6 +125,19 @@ class RepositorioAuditoriasEnMemoria implements AuditoriaRepository {
   }
 
   @override
+  Future<String> duplicar(String id) async {
+    final original = await obtenerPorId(id);
+    return guardar(
+      original.copyWith(
+        id: 'copia-${_auditorias.length}',
+        fecha: DateTime.now(),
+        estado: EstadoAuditoria.borrador,
+        eliminada: false,
+      ),
+    );
+  }
+
+  @override
   Future<OportunidadRegistro> agregarOportunidad(
     OportunidadRegistro oportunidad,
   ) async {
@@ -131,10 +148,7 @@ class RepositorioAuditoriasEnMemoria implements AuditoriaRepository {
     );
     await actualizar(
       auditoria.copyWith(
-        oportunidades: <OportunidadRegistro>[
-          ...auditoria.oportunidades,
-          nueva,
-        ],
+        oportunidades: <OportunidadRegistro>[...auditoria.oportunidades, nueva],
       ),
     );
     return nueva;
@@ -157,8 +171,9 @@ class RepositorioAuditoriasEnMemoria implements AuditoriaRepository {
   @override
   Future<ResumenAdherencia> resumenAdherencia() async {
     _verificarFallo();
-    final List<Auditoria> activas =
-        _auditorias.where((Auditoria a) => !a.eliminada).toList();
+    final List<Auditoria> activas = _auditorias
+        .where((Auditoria a) => !a.eliminada)
+        .toList();
     if (activas.isEmpty) return ResumenAdherencia.vacio();
 
     final int total = activas.fold<int>(
