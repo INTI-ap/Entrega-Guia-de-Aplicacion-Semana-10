@@ -4,32 +4,8 @@ import '../../domain/repositorios/indicador_repository.dart';
 import '../local/daos/indicadores_dao.dart';
 import '../remoto/higiene_api_service.dart';
 
-/// **Repositorio offline-first del indicador de la OMS.**
-///
-/// Este es **el corazón del patrón offline-first** de la Semana 10 y la pieza
-/// que resuelve el Reto 2. Orquesta tres fuentes de datos y decide, sin que
-/// la pantalla lo sepa, de dónde sale cada respuesta:
-///
-/// ```
-///   obtenerIndicadores()
-///      │
-///      ├─ ¿forzarRefresco? ¿caché vencida? ─────────────────────────┐
-///      │                                                            │
-///      │ no                                        sí ↓             │
-///      └──────────────► leerCache()        HigieneApiService        │
-///                            │              │        │             │
-///                            │            éxito     fallo          │
-///                            │              │        │             │
-///                            │        guardarEnCache │             │
-///                            │              │        ├─ ¿hay caché? ─► caché
-///                            │              │        └─ no ─► respaldo local
-///                            ▼              ▼
-///                     OrigenDatos.cacheLocal / OrigenDatos.red
-/// ```
-///
-/// **Contrato de robustez:** este método NUNCA lanza excepción por falta de
-/// red. Un vendedor de software no puede permitir que la aplicación de una
-/// enfermera que audita en un puesto de salud rural se quede en blanco.
+/// Consulta el indicador OMS usando red, caché local y respaldo.
+/// La vigencia decide cuándo descargar y la caché permite continuar sin red.
 class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
   IndicadorRepositoryOfflineFirst({
     required IndicadoresDao dao,
@@ -52,10 +28,7 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
   final IndicadoresDao _dao;
   final HigieneApiService _servicio;
 
-  /// Cuánto tiempo se considera "fresca" la caché antes de intentar una
-  /// nueva descarga. Es una política de negocio, no un detalle técnico: se
-  /// puede ajustar por recurso (24 h para una serie anual de la OMS, 5 min
-  /// para el clima).
+  /// Cada recurso tiene su propio intervalo de actualización.
   final Map<String, Duration> politicaVigencia;
 
   Duration get vigencia => politicaVigencia[HigieneApiService.codigoIndicador]!;
@@ -63,8 +36,7 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
   /// Reloj inyectable para probar el vencimiento sin esperar 24 horas.
   final DateTime Function() _reloj;
 
-  /// **Versión base del Reto 2.**
-  ///
+  /// Una marca ausente, futura o vencida obliga a consultar la red.
   @override
   bool cacheEsVigente(
     DateTime? ultimaSincronizacion, {
@@ -78,18 +50,7 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
     return ttl != null && !edad.isNegative && edad < ttl;
   }
 
-  /// **Versión base del Reto 2: la política de tres niveles.**
-  ///
-  /// El método respeta la siguiente prioridad y **nunca lanza excepción por
-  /// falta de red**:
-  ///
-  /// | Situación                                   | Resultado            |
-  /// |---------------------------------------------|----------------------|
-  /// | Caché vigente y no se fuerza el refresco    | `cacheLocal`         |
-  /// | Descarga exitosa                            | `red` (y guarda)     |
-  /// | Descarga fallida + caché con filas          | `cacheLocal` (vieja) |
-  /// | Descarga fallida + caché vacía              | `respaldo` (assets)  |
-  ///
+  /// Usa respaldo cuando falla la red y no hay datos guardados.
   @override
   Future<ResultadoIndicadores> obtenerIndicadores({
     bool forzarRefresco = false,
@@ -122,6 +83,7 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
         actualizadoEn: momento,
       );
     } on FalloRemoto {
+      // El fallo conserva la última descarga exitosa y aumenta el contador.
       await _dao.registrarFallo(HigieneApiService.codigoIndicador);
       // Nivel 2 degradado: la caché existe pero está vencida.
       final List<IndicadorHigiene> locales = await _dao.leerTodo();

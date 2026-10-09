@@ -36,9 +36,16 @@ abstract interface class IndicadoresDao {
   /// Elimina todos los registros de la caché (sin tocar `sincronizaciones`).
   Future<void> limpiar();
 
+  /// Aumenta los fallos consecutivos sin alterar la fecha del último éxito.
   Future<void> registrarFallo(String codigo);
+
+  /// Devuelve cero si el recurso todavía no tiene registros.
   Future<int> intentosFallidos(String codigo);
+
+  /// Quita la marca de vigencia y conserva los datos del recurso.
   Future<void> invalidar(String codigo);
+
+  /// Recupera la fecha real de descarga aunque la caché se haya invalidado.
   Future<DateTime?> fechaDatos();
 }
 
@@ -107,6 +114,7 @@ class DriftIndicadoresDao extends DatabaseAccessor<db.ManosSegurasDb>
       await into(attachedDatabase.sincronizaciones).insertOnConflictUpdate(
         db.SincronizacionesCompanion.insert(
           codigo: codigo,
+          // La descarga completa reinicia los fallos dentro de la transacción.
           intentosFallidos: const Value<int>(0),
           ultimaSincronizacion: Value<DateTime?>(momento),
           registros: Value<int>(indicadores.length),

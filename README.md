@@ -223,12 +223,9 @@ Se añaden 11 pruebas de datos y 4 de pantalla: los cinco caminos exigidos,
 contador de fallos, invalidación, aislamiento por recurso, límites de vigencia y
 migración. Las pruebas no consultan Internet ni requieren emulador.
 
-Las capturas y sus instrucciones de inserción en el informe se entregan en una
-carpeta externa, por solicitud del integrante. Ninguna carpeta de entregas,
-imagen generada ni base SQLite se incorpora al repositorio. Las cuatro capturas
-UI son renders de la pantalla real durante pruebas de widget con datos
-controlados; no demuestran una sesión de modo avión ni una descarga real de OMS.
-La evidencia en un dispositivo debe completarse antes de dar esas verificaciones
-manuales por realizadas. Para exportar los renders se puede definir
-`RETO2_EVIDENCIAS` con una ruta externa al repositorio; opcionalmente,
-`RETO2_FUENTE` y `RETO2_ICONOS` proporcionan fuentes locales para capturas legibles.
+Las evidencias y la guía de inserción en el informe se conservan en un directorio
+externo al proyecto. El repositorio contiene el código y las pruebas. Los renders
+de widget permiten verificar automáticamente el origen, la fecha y la insignia;
+las capturas del emulador y de la terminal documentan la ejecución del incremento.
+Para exportar los renders de pruebas se puede definir `RETO2_EVIDENCIAS` con una
+ruta externa; `RETO2_FUENTE` y `RETO2_ICONOS` permiten proporcionar fuentes locales.
