@@ -56,7 +56,7 @@ class DriftPreferenciasDao extends DatabaseAccessor<db.ManosSegurasDb>
       await into(attachedDatabase.sincronizaciones).insertOnConflictUpdate(
         db.SincronizacionesCompanion.insert(
           codigo: 'preferencias',
-          ultimaSincronizacion: DateTime.now(),
+          ultimaSincronizacion: Value<DateTime?>(DateTime.now()),
         ),
       );
     });

@@ -34,11 +34,20 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
   IndicadorRepositoryOfflineFirst({
     required IndicadoresDao dao,
     required HigieneApiService servicio,
-    this.vigencia = const Duration(hours: 24),
+    Duration vigencia = const Duration(hours: 24),
+    Map<String, Duration>? politicaVigencia,
     DateTime Function()? reloj,
-  })  : _dao = dao,
-        _servicio = servicio,
-        _reloj = reloj ?? DateTime.now;
+  }) : _dao = dao,
+       _servicio = servicio,
+       _reloj = reloj ?? DateTime.now,
+       politicaVigencia = Map.unmodifiable(
+         politicaVigencia ??
+             {
+               HigieneApiService.codigoIndicador: vigencia,
+               'establecimientos': const Duration(days: 7),
+               'auditorias': const Duration(minutes: 5),
+             },
+       );
 
   final IndicadoresDao _dao;
   final HigieneApiService _servicio;
@@ -47,21 +56,26 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
   /// nueva descarga. Es una política de negocio, no un detalle técnico: se
   /// puede ajustar por recurso (24 h para una serie anual de la OMS, 5 min
   /// para el clima).
-  final Duration vigencia;
+  final Map<String, Duration> politicaVigencia;
+
+  Duration get vigencia => politicaVigencia[HigieneApiService.codigoIndicador]!;
 
   /// Reloj inyectable para probar el vencimiento sin esperar 24 horas.
   final DateTime Function() _reloj;
 
   /// **Versión base del Reto 2.**
   ///
-  /// TODO(reto-2, mejora): convierta [vigencia] en un mapa por recurso
-  /// (`{'WSH_HYGIENE_BASIC': Duration(hours: 24), 'establecimientos': …}`) y
-  /// exponga en la interfaz cuánto falta para el próximo refresco.
   @override
-  bool cacheEsVigente(DateTime? ultimaSincronizacion, {DateTime? ahora}) {
+  bool cacheEsVigente(
+    DateTime? ultimaSincronizacion, {
+    DateTime? ahora,
+    String codigo = HigieneApiService.codigoIndicador,
+  }) {
     if (ultimaSincronizacion == null) return false;
     final DateTime momento = ahora ?? _reloj();
-    return momento.difference(ultimaSincronizacion) <= vigencia;
+    final ttl = politicaVigencia[codigo];
+    final edad = momento.difference(ultimaSincronizacion);
+    return ttl != null && !edad.isNegative && edad < ttl;
   }
 
   /// **Versión base del Reto 2: la política de tres niveles.**
@@ -76,9 +90,6 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
   /// | Descarga fallida + caché con filas          | `cacheLocal` (vieja) |
   /// | Descarga fallida + caché vacía              | `respaldo` (assets)  |
   ///
-  /// TODO(reto-2, mejora): agregue un `debugPrint` con la causa del fallo y
-  /// exponga en [ResultadoIndicadores] un indicador `datosObsoletos` para
-  /// que la interfaz pueda advertir "estos datos tienen más de 24 h".
   @override
   Future<ResultadoIndicadores> obtenerIndicadores({
     bool forzarRefresco = false,
@@ -101,22 +112,25 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
 
     // Nivel 1: servicio remoto.
     try {
-      final List<IndicadorHigiene> remotas =
-          await _servicio.obtenerIndicadoresPeru();
-      await _dao.reemplazarTodo(remotas, momento: _reloj());
+      final List<IndicadorHigiene> remotas = await _servicio
+          .obtenerIndicadoresPeru();
+      final momento = _reloj();
+      await _dao.reemplazarTodo(remotas, momento: momento);
       return ResultadoIndicadores(
         indicadores: remotas,
         origen: OrigenDatos.red,
-        actualizadoEn: _reloj(),
+        actualizadoEn: momento,
       );
     } on FalloRemoto {
+      await _dao.registrarFallo(HigieneApiService.codigoIndicador);
       // Nivel 2 degradado: la caché existe pero está vencida.
       final List<IndicadorHigiene> locales = await _dao.leerTodo();
       if (locales.isNotEmpty) {
         return ResultadoIndicadores(
           indicadores: locales,
           origen: OrigenDatos.cacheLocal,
-          actualizadoEn: ultima,
+          actualizadoEn: await _dao.fechaDatos(),
+          datosObsoletos: !cacheEsVigente(ultima),
         );
       }
 
@@ -136,10 +150,7 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
     List<IndicadorHigiene> indicadores, {
     DateTime? momento,
   }) {
-    return _dao.reemplazarTodo(
-      indicadores,
-      momento: momento ?? _reloj(),
-    );
+    return _dao.reemplazarTodo(indicadores, momento: momento ?? _reloj());
   }
 
   @override
@@ -148,4 +159,7 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
 
   @override
   Future<void> limpiarCache() => _dao.limpiar();
+
+  @override
+  Future<void> invalidar(String codigo) => _dao.invalidar(codigo);
 }

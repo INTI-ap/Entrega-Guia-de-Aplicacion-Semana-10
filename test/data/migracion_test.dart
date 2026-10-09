@@ -86,14 +86,14 @@ void main() {
   // a propósito: el equipo debe quitar el `skip` cuando suba el esquema a la
   // versión 2 y la comparación tenga sentido.
   test(
-    'la versión del esquema es 2 (Reto 4 completado)',
+    'la versión del esquema es 3 (Retos 2 y 4 integrados)',
     () {
       final ManosSegurasDb base = ManosSegurasDb(NativeDatabase.memory());
       addTearDown(base.close);
       expect(
         base.schemaVersion,
-        2,
-        reason: 'Suba schemaVersion a 2 y descomente la migración en '
+        3,
+        reason: 'El esquema actual incluye la migración del Reto 2 en '
             'manos_seguras_db.dart para completar el Reto 4.',
       );
     },

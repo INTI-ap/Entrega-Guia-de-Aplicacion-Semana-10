@@ -38,8 +38,8 @@ class _PantallaIndicadoresState extends State<PantallaIndicadores> {
   }
 
   Future<void> _recargar({bool forzar = false}) async {
-    final Future<ResultadoIndicadores> consulta =
-        _repositorio.obtenerIndicadores(forzarRefresco: forzar);
+    final Future<ResultadoIndicadores> consulta = _repositorio
+        .obtenerIndicadores(forzarRefresco: forzar);
     setState(() {
       _futuro = consulta;
       _forzando = forzar;
@@ -55,9 +55,9 @@ class _PantallaIndicadoresState extends State<PantallaIndicadores> {
   Future<void> _vaciarCache() async {
     await _repositorio.limpiarCache();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Caché local vaciada.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Caché local vaciada.')));
     await _recargar();
   }
 
@@ -82,57 +82,60 @@ class _PantallaIndicadoresState extends State<PantallaIndicadores> {
       body: AppLayout(
         child: FutureBuilder<ResultadoIndicadores>(
           future: _futuro,
-          builder: (
-            BuildContext context,
-            AsyncSnapshot<ResultadoIndicadores> snapshot,
-          ) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const EstadoCarga(mensaje: 'Consultando el indicador…');
-            }
+          builder:
+              (
+                BuildContext context,
+                AsyncSnapshot<ResultadoIndicadores> snapshot,
+              ) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const EstadoCarga(
+                    mensaje: 'Consultando el indicador…',
+                  );
+                }
 
-            if (snapshot.hasError) {
-              return EstadoError(
-                mensaje: '${snapshot.error}',
-                alReintentar: _recargar,
-              );
-            }
+                if (snapshot.hasError) {
+                  return EstadoError(
+                    mensaje: '${snapshot.error}',
+                    alReintentar: _recargar,
+                  );
+                }
 
-            final ResultadoIndicadores? resultado = snapshot.data;
-            if (resultado == null || resultado.estaVacio) {
-              return EstadoVacio(
-                mensaje: 'No hay registros del indicador en el dispositivo '
-                    'ni en el servicio.',
-                accionEtiqueta: 'Reintentar',
-                alAccionar: _recargar,
-              );
-            }
+                final ResultadoIndicadores? resultado = snapshot.data;
+                if (resultado == null || resultado.estaVacio) {
+                  return EstadoVacio(
+                    mensaje:
+                        'No hay registros del indicador en el dispositivo '
+                        'ni en el servicio.',
+                    accionEtiqueta: 'Reintentar',
+                    alAccionar: _recargar,
+                  );
+                }
 
-            final List<IndicadorHigiene> indicadores = resultado.indicadores;
+                final List<IndicadorHigiene> indicadores =
+                    resultado.indicadores;
 
-            return RefreshIndicator(
-              onRefresh: () => _recargar(forzar: true),
-              child: ListView(
-                padding: const EdgeInsets.only(bottom: 24),
-                children: <Widget>[
-                  _Cabecera(resultado: resultado),
-                  const SizedBox(height: 16),
-                  const TituloSeccion(
-                    'Serie histórica por año',
-                    icono: Icons.show_chart,
-                  ),
-                  ...indicadores.reversed.map(
-                    (IndicadorHigiene i) => _TarjetaIndicador(
-                      indicador: i,
-                      alTocar: () => context.push(
-                        '/indicadores/${i.anio}',
-                        extra: i,
+                return RefreshIndicator(
+                  onRefresh: () => _recargar(forzar: true),
+                  child: ListView(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    children: <Widget>[
+                      _Cabecera(resultado: resultado),
+                      const SizedBox(height: 16),
+                      const TituloSeccion(
+                        'Serie histórica por año',
+                        icono: Icons.show_chart,
                       ),
-                    ),
+                      ...indicadores.reversed.map(
+                        (IndicadorHigiene i) => _TarjetaIndicador(
+                          indicador: i,
+                          alTocar: () =>
+                              context.push('/indicadores/${i.anio}', extra: i),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            );
-          },
+                );
+              },
         ),
       ),
     );
@@ -172,21 +175,23 @@ class _Cabecera extends StatelessWidget {
             style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 12),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: <Widget>[
               InsigniaOrigen(
                 etiqueta: resultado.origen.etiqueta,
                 esRemoto: resultado.origen == OrigenDatos.red,
+                datosObsoletos: resultado.datosObsoletos,
               ),
               const SizedBox(width: 8),
               if (resultado.actualizadoEn != null)
-                Flexible(
-                  child: Text(
-                    'Actualizado: ${formatearFechaHora(resultado.actualizadoEn!)}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
-                    ),
+                Text(
+                  'Actualizado: ${formatearFechaHora(resultado.actualizadoEn!)}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
                   ),
                 ),
             ],
@@ -237,10 +242,7 @@ class _Dato extends StatelessWidget {
         ),
         Text(
           etiqueta,
-          style: const TextStyle(
-            fontSize: 11,
-            color: AppColors.textSecondary,
-          ),
+          style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
         ),
       ],
     );
@@ -309,9 +311,7 @@ class _TarjetaIndicador extends StatelessWidget {
                 value: indicador.fraccion,
                 minHeight: 8,
                 backgroundColor: AppColors.background,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  AppColors.cyan,
-                ),
+                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.cyan),
               ),
             ),
           ],

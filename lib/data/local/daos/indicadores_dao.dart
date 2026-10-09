@@ -6,8 +6,6 @@ import '../../mapeadores/indicador_mapper.dart';
 import '../../remoto/higiene_api_service.dart';
 import '../aliases.dart' as g;
 
-
-
 /// **DAO de la caché local del indicador de la OMS.**
 ///
 /// Semana 10 — temática 2.2.3. Manipula dos tablas:
@@ -29,6 +27,7 @@ abstract interface class IndicadoresDao {
   Future<void> reemplazarTodo(
     List<IndicadorHigiene> indicadores, {
     required DateTime momento,
+    String codigo = HigieneApiService.codigoIndicador,
   });
 
   /// Fecha de la última sincronización del recurso, o `null`.
@@ -36,6 +35,11 @@ abstract interface class IndicadoresDao {
 
   /// Elimina todos los registros de la caché (sin tocar `sincronizaciones`).
   Future<void> limpiar();
+
+  Future<void> registrarFallo(String codigo);
+  Future<int> intentosFallidos(String codigo);
+  Future<void> invalidar(String codigo);
+  Future<DateTime?> fechaDatos();
 }
 
 /// Implementación con drift (ver Anexo A, Error 7: por qué no lleva
@@ -78,13 +82,12 @@ class DriftIndicadoresDao extends DatabaseAccessor<db.ManosSegurasDb>
   /// Si algo falla, la caché anterior sigue intacta: la aplicación nunca se
   /// queda sin datos por una descarga a medias.
   ///
-  /// TODO(reto-2, mejora): agregue el código del recurso como parámetro (hoy
-  /// está fijo en `WSH_HYGIENE_BASIC`) y registre también el número de
-  /// intentos fallidos en `sincronizaciones`.
+  /// El código identifica el recurso; una descarga exitosa reinicia sus fallos.
   @override
   Future<void> reemplazarTodo(
     List<IndicadorHigiene> indicadores, {
     required DateTime momento,
+    String codigo = HigieneApiService.codigoIndicador,
   }) async {
     await transaction(() async {
       await delete(attachedDatabase.indicadoresCache).go();
@@ -103,8 +106,9 @@ class DriftIndicadoresDao extends DatabaseAccessor<db.ManosSegurasDb>
 
       await into(attachedDatabase.sincronizaciones).insertOnConflictUpdate(
         db.SincronizacionesCompanion.insert(
-          codigo: HigieneApiService.codigoIndicador,
-          ultimaSincronizacion: momento,
+          codigo: codigo,
+          intentosFallidos: const Value<int>(0),
+          ultimaSincronizacion: Value<DateTime?>(momento),
           registros: Value<int>(indicadores.length),
         ),
       );
@@ -123,5 +127,45 @@ class DriftIndicadoresDao extends DatabaseAccessor<db.ManosSegurasDb>
   @override
   Future<void> limpiar() {
     return delete(attachedDatabase.indicadoresCache).go();
+  }
+
+  @override
+  Future<void> registrarFallo(String codigo) async {
+    // UPSERT atómico: tampoco pierde incrementos en solicitudes concurrentes.
+    await customStatement(
+      'INSERT INTO sincronizaciones '
+      '(codigo, ultima_sincronizacion, registros, intentos_fallidos) '
+      'VALUES (?, NULL, 0, 1) ON CONFLICT(codigo) DO UPDATE SET '
+      'intentos_fallidos = intentos_fallidos + 1',
+      <Object>[codigo],
+    );
+  }
+
+  @override
+  Future<int> intentosFallidos(String codigo) async {
+    final fila = await (select(
+      attachedDatabase.sincronizaciones,
+    )..where((t) => t.codigo.equals(codigo))).getSingleOrNull();
+    return fila?.intentosFallidos ?? 0;
+  }
+
+  @override
+  Future<void> invalidar(String codigo) async {
+    // Se borra la marca, no la caché ni el contador de errores.
+    await (update(
+      attachedDatabase.sincronizaciones,
+    )..where((t) => t.codigo.equals(codigo))).write(
+      const db.SincronizacionesCompanion(
+        ultimaSincronizacion: Value<DateTime?>(null),
+      ),
+    );
+  }
+
+  @override
+  Future<DateTime?> fechaDatos() async {
+    final fila = await (select(
+      attachedDatabase.indicadoresCache,
+    )..limit(1)).getSingleOrNull();
+    return fila?.descargadoEn;
   }
 }

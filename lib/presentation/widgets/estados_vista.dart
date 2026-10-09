@@ -6,10 +6,7 @@ import '../../core/theme/app_theme.dart';
 /// no se completa. Es el mismo widget de la Sesión 16, con un mensaje por
 /// omisión que ahora habla de la base local y del servicio remoto.
 class EstadoCarga extends StatelessWidget {
-  const EstadoCarga({
-    super.key,
-    this.mensaje = 'Consultando datos…',
-  });
+  const EstadoCarga({super.key, this.mensaje = 'Consultando datos…'});
 
   final String mensaje;
 
@@ -137,16 +134,22 @@ class InsigniaOrigen extends StatelessWidget {
     super.key,
     required this.etiqueta,
     required this.esRemoto,
+    this.datosObsoletos = false,
     this.icono,
   });
 
   final String etiqueta;
   final bool esRemoto;
+  final bool datosObsoletos;
   final IconData? icono;
 
   @override
   Widget build(BuildContext context) {
-    final Color color = esRemoto ? AppColors.exito : AppColors.aviso;
+    final Color color = datosObsoletos
+        ? const Color(0xFFB45309)
+        : esRemoto
+        ? AppColors.exito
+        : AppColors.textSecondary;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
@@ -158,17 +161,24 @@ class InsigniaOrigen extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Icon(
-            icono ?? (esRemoto ? Icons.cloud_done : Icons.sd_storage),
+            icono ??
+                (datosObsoletos
+                    ? Icons.warning_amber_rounded
+                    : esRemoto
+                    ? Icons.cloud_done
+                    : Icons.sd_storage),
             size: 14,
             color: color,
           ),
           const SizedBox(width: 6),
-          Text(
-            etiqueta,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
+          Flexible(
+            child: Text(
+              datosObsoletos ? 'Caché vencida · Datos obsoletos' : etiqueta,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ),
         ],

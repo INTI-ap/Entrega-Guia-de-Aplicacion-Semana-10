@@ -59,7 +59,7 @@ class ManosSegurasDb extends _$ManosSegurasDb {
   ManosSegurasDb(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   /// Estrategia de migración.
   ///
@@ -84,6 +84,14 @@ class ManosSegurasDb extends _$ManosSegurasDb {
             "WHERE observacion_general IS NULL",
           );
         }
+        if (desde < 3) {
+          await m.alterTable(
+            TableMigration(
+              sincronizaciones,
+              newColumns: [sincronizaciones.intentosFallidos],
+            ),
+          );
+        }
       },
       beforeOpen: (OpeningDetails detalles) async {
         // `PRAGMA foreign_keys = ON` NO viene activado por omisión en
@@ -104,9 +112,7 @@ class ManosSegurasDb extends _$ManosSegurasDb {
   /// fuera— para que todo el acceso a SQL pase por la base de datos o por
   /// sus DAO: es la misma regla de encapsulamiento que se aplica en el
   /// resto del proyecto (Ley de Demeter).
-  Future<void> insertarEstablecimiento(
-    EstablecimientosCompanion fila,
-  ) async {
+  Future<void> insertarEstablecimiento(EstablecimientosCompanion fila) async {
     await into(establecimientos).insertOnConflictUpdate(fila);
   }
 
@@ -138,11 +144,11 @@ class ManosSegurasDb extends _$ManosSegurasDb {
   /// Comprueba si existe un establecimiento (la usa la pantalla de
   /// diagnóstico para demostrar la clave foránea).
   Future<bool> existeEstablecimiento(String codigoUnico) async {
-    final Establecimiento? fila = await (select(establecimientos)
-          ..where(
-            ($EstablecimientosTable t) => t.codigoUnico.equals(codigoUnico),
-          ))
-        .getSingleOrNull();
+    final Establecimiento? fila =
+        await (select(establecimientos)..where(
+              ($EstablecimientosTable t) => t.codigoUnico.equals(codigoUnico),
+            ))
+            .getSingleOrNull();
     return fila != null;
   }
 
@@ -158,8 +164,7 @@ class ManosSegurasDb extends _$ManosSegurasDb {
   /// Devuelve el valor del `PRAGMA foreign_keys` (1 = activo). Es la
   /// comprobación que exige el Reto 5.
   Future<int> estadoClavesForaneas() async {
-    final QueryRow fila =
-        await customSelect('PRAGMA foreign_keys').getSingle();
+    final QueryRow fila = await customSelect('PRAGMA foreign_keys').getSingle();
     return fila.read<int>('foreign_keys');
   }
 }

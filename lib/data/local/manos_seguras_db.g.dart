@@ -3260,9 +3260,9 @@ class $SincronizacionesTable extends Sincronizaciones
       GeneratedColumn<DateTime>(
         'ultima_sincronizacion',
         aliasedName,
-        false,
+        true,
         type: DriftSqlType.dateTime,
-        requiredDuringInsert: true,
+        requiredDuringInsert: false,
       );
   static const VerificationMeta _registrosMeta = const VerificationMeta(
     'registros',
@@ -3276,11 +3276,24 @@ class $SincronizacionesTable extends Sincronizaciones
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _intentosFallidosMeta = const VerificationMeta(
+    'intentosFallidos',
+  );
+  @override
+  late final GeneratedColumn<int> intentosFallidos = GeneratedColumn<int>(
+    'intentos_fallidos',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     codigo,
     ultimaSincronizacion,
     registros,
+    intentosFallidos,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3310,13 +3323,20 @@ class $SincronizacionesTable extends Sincronizaciones
           _ultimaSincronizacionMeta,
         ),
       );
-    } else if (isInserting) {
-      context.missing(_ultimaSincronizacionMeta);
     }
     if (data.containsKey('registros')) {
       context.handle(
         _registrosMeta,
         registros.isAcceptableOrUnknown(data['registros']!, _registrosMeta),
+      );
+    }
+    if (data.containsKey('intentos_fallidos')) {
+      context.handle(
+        _intentosFallidosMeta,
+        intentosFallidos.isAcceptableOrUnknown(
+          data['intentos_fallidos']!,
+          _intentosFallidosMeta,
+        ),
       );
     }
     return context;
@@ -3335,10 +3355,14 @@ class $SincronizacionesTable extends Sincronizaciones
       ultimaSincronizacion: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}ultima_sincronizacion'],
-      )!,
+      ),
       registros: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}registros'],
+      )!,
+      intentosFallidos: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}intentos_fallidos'],
       )!,
     );
   }
@@ -3352,29 +3376,39 @@ class $SincronizacionesTable extends Sincronizaciones
 class Sincronizacione extends DataClass implements Insertable<Sincronizacione> {
   /// Código del recurso: 'WSH_HYGIENE_BASIC', 'establecimientos', etc.
   final String codigo;
-  final DateTime ultimaSincronizacion;
+  final DateTime? ultimaSincronizacion;
 
   /// Cantidad de registros escritos en la última descarga exitosa.
   final int registros;
+
+  /// Fallos consecutivos desde la última descarga exitosa.
+  final int intentosFallidos;
   const Sincronizacione({
     required this.codigo,
-    required this.ultimaSincronizacion,
+    this.ultimaSincronizacion,
     required this.registros,
+    required this.intentosFallidos,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['codigo'] = Variable<String>(codigo);
-    map['ultima_sincronizacion'] = Variable<DateTime>(ultimaSincronizacion);
+    if (!nullToAbsent || ultimaSincronizacion != null) {
+      map['ultima_sincronizacion'] = Variable<DateTime>(ultimaSincronizacion);
+    }
     map['registros'] = Variable<int>(registros);
+    map['intentos_fallidos'] = Variable<int>(intentosFallidos);
     return map;
   }
 
   SincronizacionesCompanion toCompanion(bool nullToAbsent) {
     return SincronizacionesCompanion(
       codigo: Value(codigo),
-      ultimaSincronizacion: Value(ultimaSincronizacion),
+      ultimaSincronizacion: ultimaSincronizacion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ultimaSincronizacion),
       registros: Value(registros),
+      intentosFallidos: Value(intentosFallidos),
     );
   }
 
@@ -3385,10 +3419,11 @@ class Sincronizacione extends DataClass implements Insertable<Sincronizacione> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Sincronizacione(
       codigo: serializer.fromJson<String>(json['codigo']),
-      ultimaSincronizacion: serializer.fromJson<DateTime>(
+      ultimaSincronizacion: serializer.fromJson<DateTime?>(
         json['ultimaSincronizacion'],
       ),
       registros: serializer.fromJson<int>(json['registros']),
+      intentosFallidos: serializer.fromJson<int>(json['intentosFallidos']),
     );
   }
   @override
@@ -3396,19 +3431,26 @@ class Sincronizacione extends DataClass implements Insertable<Sincronizacione> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'codigo': serializer.toJson<String>(codigo),
-      'ultimaSincronizacion': serializer.toJson<DateTime>(ultimaSincronizacion),
+      'ultimaSincronizacion': serializer.toJson<DateTime?>(
+        ultimaSincronizacion,
+      ),
       'registros': serializer.toJson<int>(registros),
+      'intentosFallidos': serializer.toJson<int>(intentosFallidos),
     };
   }
 
   Sincronizacione copyWith({
     String? codigo,
-    DateTime? ultimaSincronizacion,
+    Value<DateTime?> ultimaSincronizacion = const Value.absent(),
     int? registros,
+    int? intentosFallidos,
   }) => Sincronizacione(
     codigo: codigo ?? this.codigo,
-    ultimaSincronizacion: ultimaSincronizacion ?? this.ultimaSincronizacion,
+    ultimaSincronizacion: ultimaSincronizacion.present
+        ? ultimaSincronizacion.value
+        : this.ultimaSincronizacion,
     registros: registros ?? this.registros,
+    intentosFallidos: intentosFallidos ?? this.intentosFallidos,
   );
   Sincronizacione copyWithCompanion(SincronizacionesCompanion data) {
     return Sincronizacione(
@@ -3417,6 +3459,9 @@ class Sincronizacione extends DataClass implements Insertable<Sincronizacione> {
           ? data.ultimaSincronizacion.value
           : this.ultimaSincronizacion,
       registros: data.registros.present ? data.registros.value : this.registros,
+      intentosFallidos: data.intentosFallidos.present
+          ? data.intentosFallidos.value
+          : this.intentosFallidos,
     );
   }
 
@@ -3425,44 +3470,50 @@ class Sincronizacione extends DataClass implements Insertable<Sincronizacione> {
     return (StringBuffer('Sincronizacione(')
           ..write('codigo: $codigo, ')
           ..write('ultimaSincronizacion: $ultimaSincronizacion, ')
-          ..write('registros: $registros')
+          ..write('registros: $registros, ')
+          ..write('intentosFallidos: $intentosFallidos')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(codigo, ultimaSincronizacion, registros);
+  int get hashCode =>
+      Object.hash(codigo, ultimaSincronizacion, registros, intentosFallidos);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is Sincronizacione &&
           other.codigo == this.codigo &&
           other.ultimaSincronizacion == this.ultimaSincronizacion &&
-          other.registros == this.registros);
+          other.registros == this.registros &&
+          other.intentosFallidos == this.intentosFallidos);
 }
 
 class SincronizacionesCompanion extends UpdateCompanion<Sincronizacione> {
   final Value<String> codigo;
-  final Value<DateTime> ultimaSincronizacion;
+  final Value<DateTime?> ultimaSincronizacion;
   final Value<int> registros;
+  final Value<int> intentosFallidos;
   final Value<int> rowid;
   const SincronizacionesCompanion({
     this.codigo = const Value.absent(),
     this.ultimaSincronizacion = const Value.absent(),
     this.registros = const Value.absent(),
+    this.intentosFallidos = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   SincronizacionesCompanion.insert({
     required String codigo,
-    required DateTime ultimaSincronizacion,
+    this.ultimaSincronizacion = const Value.absent(),
     this.registros = const Value.absent(),
+    this.intentosFallidos = const Value.absent(),
     this.rowid = const Value.absent(),
-  }) : codigo = Value(codigo),
-       ultimaSincronizacion = Value(ultimaSincronizacion);
+  }) : codigo = Value(codigo);
   static Insertable<Sincronizacione> custom({
     Expression<String>? codigo,
     Expression<DateTime>? ultimaSincronizacion,
     Expression<int>? registros,
+    Expression<int>? intentosFallidos,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3470,20 +3521,23 @@ class SincronizacionesCompanion extends UpdateCompanion<Sincronizacione> {
       if (ultimaSincronizacion != null)
         'ultima_sincronizacion': ultimaSincronizacion,
       if (registros != null) 'registros': registros,
+      if (intentosFallidos != null) 'intentos_fallidos': intentosFallidos,
       if (rowid != null) 'rowid': rowid,
     });
   }
 
   SincronizacionesCompanion copyWith({
     Value<String>? codigo,
-    Value<DateTime>? ultimaSincronizacion,
+    Value<DateTime?>? ultimaSincronizacion,
     Value<int>? registros,
+    Value<int>? intentosFallidos,
     Value<int>? rowid,
   }) {
     return SincronizacionesCompanion(
       codigo: codigo ?? this.codigo,
       ultimaSincronizacion: ultimaSincronizacion ?? this.ultimaSincronizacion,
       registros: registros ?? this.registros,
+      intentosFallidos: intentosFallidos ?? this.intentosFallidos,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3502,6 +3556,9 @@ class SincronizacionesCompanion extends UpdateCompanion<Sincronizacione> {
     if (registros.present) {
       map['registros'] = Variable<int>(registros.value);
     }
+    if (intentosFallidos.present) {
+      map['intentos_fallidos'] = Variable<int>(intentosFallidos.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3514,6 +3571,7 @@ class SincronizacionesCompanion extends UpdateCompanion<Sincronizacione> {
           ..write('codigo: $codigo, ')
           ..write('ultimaSincronizacion: $ultimaSincronizacion, ')
           ..write('registros: $registros, ')
+          ..write('intentosFallidos: $intentosFallidos, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();

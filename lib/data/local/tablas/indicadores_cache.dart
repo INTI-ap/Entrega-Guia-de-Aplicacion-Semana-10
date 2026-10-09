@@ -46,10 +46,13 @@ class Sincronizaciones extends Table {
   /// Código del recurso: 'WSH_HYGIENE_BASIC', 'establecimientos', etc.
   TextColumn get codigo => text()();
 
-  DateTimeColumn get ultimaSincronizacion => dateTime()();
+  DateTimeColumn get ultimaSincronizacion => dateTime().nullable()();
 
   /// Cantidad de registros escritos en la última descarga exitosa.
   IntColumn get registros => integer().withDefault(const Constant(0))();
+
+  /// Fallos consecutivos desde la última descarga exitosa.
+  IntColumn get intentosFallidos => integer().withDefault(const Constant(0))();
 
   @override
   Set<Column<Object>> get primaryKey => <Column<Object>>{codigo};

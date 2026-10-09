@@ -50,8 +50,7 @@ class IndicadorHigiene {
   }
 
   @override
-  String toString() =>
-      'IndicadorHigiene($pais, $anio, $ambito, $valorTexto)';
+  String toString() => 'IndicadorHigiene($pais, $anio, $ambito, $valorTexto)';
 }
 
 /// Origen del que se obtuvieron los datos que la pantalla está mostrando.
@@ -62,10 +61,7 @@ class IndicadorHigiene {
 enum OrigenDatos {
   red(clave: 'red', etiqueta: 'Actualizado desde el servicio'),
   cacheLocal(clave: 'cache', etiqueta: 'Datos guardados en el dispositivo'),
-  respaldo(
-    clave: 'respaldo',
-    etiqueta: 'Datos de respaldo (sin conexión)',
-  );
+  respaldo(clave: 'respaldo', etiqueta: 'Datos de respaldo (sin conexión)');
 
   const OrigenDatos({required this.clave, required this.etiqueta});
 
@@ -81,6 +77,7 @@ class ResultadoIndicadores {
     required this.indicadores,
     required this.origen,
     this.actualizadoEn,
+    this.datosObsoletos = false,
   });
 
   final List<IndicadorHigiene> indicadores;
@@ -89,6 +86,9 @@ class ResultadoIndicadores {
   /// Momento en que los datos se descargaron del servicio (puede ser
   /// anterior a "ahora" si vienen de la caché local).
   final DateTime? actualizadoEn;
+
+  /// La caché entregada superó su vigencia o fue invalidada.
+  final bool datosObsoletos;
 
   bool get estaVacio => indicadores.isEmpty;
 }
