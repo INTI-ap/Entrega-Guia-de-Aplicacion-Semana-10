@@ -31,12 +31,10 @@ class AuditoriaRepositoryDrift implements AuditoriaRepository {
   final String Function() generadorId;
 
   @override
-  Stream<List<Auditoria>> observarAuditorias({
-    bool incluirEliminadas = false,
-  }) {
-    return _dao
-        .observar(incluirEliminadas: incluirEliminadas)
-        .handleError((Object error) {
+  Stream<List<Auditoria>> observarAuditorias({bool incluirEliminadas = false}) {
+    return _dao.observar(incluirEliminadas: incluirEliminadas).handleError((
+      Object error,
+    ) {
       throw FalloLocal(
         'No se pudieron leer las auditorías guardadas.',
         causa: error,
@@ -109,61 +107,34 @@ class AuditoriaRepositoryDrift implements AuditoriaRepository {
     }
   }
 
-  /// **Reto 1 — escritura cabecera + detalle.**
-  ///
-  /// TODO(reto-1a): implemente este método.
-  ///
-  /// Contrato:
-  ///  1. si `auditoria.id` viene vacío, asígnele [generadorId]();
-  ///  2. inserte la cabecera con `_dao.insertarCabecera(...)`;
-  ///  3. inserte cada oportunidad con `_dao.insertarOportunidad(...)`,
-  ///     rellenando `auditoriaId` con el identificador definitivo;
-  ///  4. devuelva el identificador.
-  ///
-  /// Esqueleto de partida:
-  /// ```dart
-  /// final String id = auditoria.id.isEmpty ? generadorId() : auditoria.id;
-  /// final Auditoria conId = auditoria.copyWith(id: id);
-  /// final bool insertada = await _dao.insertarCabecera(conId);
-  /// if (!insertada) {
-  ///   throw const FalloDeValidacion('Ya existe una auditoría con ese id.');
-  /// }
-  /// for (final o in conId.oportunidades) {
-  ///   await _dao.insertarOportunidad(o.copyWith(auditoriaId: id));
-  /// }
-  /// return id;
-  /// ```
-  ///
-  /// **Atomicidad (Reto 5).** Este método escribe en dos tablas. Si el
-  /// proceso se interrumpe entre la cabecera y el detalle, queda una
-  /// auditoría a medias. La solución profesional consiste en envolver las
-  /// escrituras en `db.transaction(...)`; en la sección 9.6 de la guía se
-  /// explica cómo hacerlo y se propone como parte del Reto 5.
+  /// Confirma cabecera y oportunidades juntas; un fallo revierte ambas.
   @override
   Future<String> guardar(Auditoria auditoria) async {
     try {
-      final String id = auditoria.id.isEmpty ? generadorId() : auditoria.id;
-      final Auditoria conId = auditoria.copyWith(id: id);
+      return await _dao.transaccion(() async {
+        final String id = auditoria.id.isEmpty ? generadorId() : auditoria.id;
+        final Auditoria conId = auditoria.copyWith(id: id);
 
-      final bool insertada = await _dao.insertarCabecera(conId);
-      if (!insertada) {
-        throw FalloDeValidacion(
-          'Ya existe una auditoría con el identificador $id. '
-          'Genere uno nuevo o use actualizar().',
-        );
-      }
+        final bool insertada = await _dao.insertarCabecera(conId);
+        if (!insertada) {
+          throw FalloDeValidacion(
+            'Ya existe una auditoría con el identificador $id. '
+            'Genere uno nuevo o use actualizar().',
+          );
+        }
 
-      for (int i = 0; i < conId.oportunidades.length; i++) {
-        final OportunidadRegistro oportunidad = conId.oportunidades[i];
-        await _dao.insertarOportunidad(
-          oportunidad.copyWith(
-            auditoriaId: id,
-            numero: oportunidad.numero == 0 ? i + 1 : oportunidad.numero,
-          ),
-        );
-      }
+        for (int i = 0; i < conId.oportunidades.length; i++) {
+          final OportunidadRegistro oportunidad = conId.oportunidades[i];
+          await _dao.insertarOportunidad(
+            oportunidad.copyWith(
+              auditoriaId: id,
+              numero: oportunidad.numero == 0 ? i + 1 : oportunidad.numero,
+            ),
+          );
+        }
 
-      return id;
+        return id;
+      });
     } on Fallo {
       rethrow;
     } catch (error) {
@@ -177,23 +148,31 @@ class AuditoriaRepositoryDrift implements AuditoriaRepository {
   @override
   Future<void> actualizar(Auditoria auditoria) async {
     try {
-      final int filas = await _dao.actualizarCabecera(auditoria);
+      await _dao.transaccion(() async {
+        final anterior = await obtenerPorId(auditoria.id);
+        final int filas = await _dao.actualizarCabecera(auditoria);
 
-      if (filas == 0) {
-        throw FalloNoEncontrado(
-          'No existe la auditoría ${auditoria.id} que intenta actualizar.',
-        );
-      }
+        if (filas == 0) {
+          throw FalloNoEncontrado(
+            'No existe la auditoría ${auditoria.id} que intenta actualizar.',
+          );
+        }
 
-      // Reemplazo completo del detalle: es la estrategia más simple y
-      // correcta para 5-10 filas por auditoría. Para volúmenes mayores,
-      // conviene un *diff* (insertar/actualizar/borrar solo lo que cambió).
-      await _dao.borrarOportunidadesDe(auditoria.id);
-      for (final OportunidadRegistro oportunidad in auditoria.oportunidades) {
-        await _dao.insertarOportunidad(
-          oportunidad.copyWith(auditoriaId: auditoria.id),
-        );
-      }
+        // Solo reemplaza el detalle si cambió; una edición de cabecera conserva sus IDs.
+        if (!_mismoDetalle(anterior, auditoria)) {
+          // Reemplazo completo del detalle: es la estrategia más simple y
+          // correcta para 5-10 filas por auditoría. Para volúmenes mayores,
+          // conviene un *diff* (insertar/actualizar/borrar solo lo que cambió).
+          await _dao.borrarOportunidadesDe(auditoria.id);
+          for (final OportunidadRegistro oportunidad
+              in auditoria.oportunidades) {
+            await _dao.insertarOportunidad(
+              oportunidad.copyWith(auditoriaId: auditoria.id),
+            );
+          }
+        }
+        await _dao.registrarCambios(anterior, auditoria);
+      });
     } on Fallo {
       rethrow;
     } catch (error) {
@@ -204,10 +183,17 @@ class AuditoriaRepositoryDrift implements AuditoriaRepository {
   @override
   Future<void> eliminarLogicamente(String id) async {
     try {
-      final int filas = await _dao.marcarEliminada(id);
-      if (filas == 0) {
-        throw FalloNoEncontrado('No existe la auditoría $id.');
-      }
+      await _dao.transaccion(() async {
+        final anterior = await obtenerPorId(id);
+        final int filas = await _dao.marcarEliminada(id);
+        if (filas == 0) {
+          throw FalloNoEncontrado('No existe la auditoría $id.');
+        }
+        await _dao.registrarCambios(
+          anterior,
+          anterior.copyWith(eliminada: true),
+        );
+      });
     } on Fallo {
       rethrow;
     } catch (error) {
@@ -218,10 +204,17 @@ class AuditoriaRepositoryDrift implements AuditoriaRepository {
   @override
   Future<void> restaurar(String id) async {
     try {
-      final int filas = await _dao.restaurar(id);
-      if (filas == 0) {
-        throw FalloNoEncontrado('No existe la auditoría $id para restaurar.');
-      }
+      await _dao.transaccion(() async {
+        final anterior = await obtenerPorId(id);
+        final int filas = await _dao.restaurar(id);
+        if (filas == 0) {
+          throw FalloNoEncontrado('No existe la auditoría $id para restaurar.');
+        }
+        await _dao.registrarCambios(
+          anterior,
+          anterior.copyWith(eliminada: false),
+        );
+      });
     } on Fallo {
       rethrow;
     } catch (error) {
@@ -229,32 +222,92 @@ class AuditoriaRepositoryDrift implements AuditoriaRepository {
     }
   }
 
+  bool _mismoDetalle(Auditoria a, Auditoria b) {
+    if (a.oportunidades.length != b.oportunidades.length) return false;
+    for (int i = 0; i < a.oportunidades.length; i++) {
+      final x = a.oportunidades[i];
+      final y = b.oportunidades[i];
+      if (x.numero != y.numero ||
+          x.momento != y.momento ||
+          x.accion != y.accion ||
+          x.observacion != y.observacion ||
+          x.duracionSegundos != y.duracionSegundos) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @override
+  Future<String> duplicar(String id) async {
+    final original = await obtenerPorId(id);
+    final nuevaId = generadorId();
+    final hoy = DateTime.now();
+    // Se crea una observación nueva; no hereda marcas de sincronización ni anulación.
+    return guardar(
+      Auditoria(
+        id: nuevaId,
+        establecimientoId: original.establecimientoId,
+        establecimientoNombre: original.establecimientoNombre,
+        observadorDni: original.observadorDni,
+        observadorNombre: original.observadorNombre,
+        observadoDni: original.observadoDni,
+        observadoNombre: original.observadoNombre,
+        fecha: hoy,
+        fechaInicio: hoy,
+        numeroCamas: original.numeroCamas,
+        consentimientoVerbal: original.consentimientoVerbal,
+        observacionGeneral: original.observacionGeneral,
+        oportunidades: original.oportunidades
+            .map(
+              (o) => OportunidadRegistro(
+                auditoriaId: nuevaId,
+                numero: o.numero,
+                momento: o.momento,
+                accion: o.accion,
+                observacion: o.observacion,
+                duracionSegundos: o.duracionSegundos,
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
   @override
   Future<OportunidadRegistro> agregarOportunidad(
     OportunidadRegistro oportunidad,
   ) async {
     try {
-      final Auditoria auditoria = await obtenerPorId(oportunidad.auditoriaId);
-      final int siguiente = auditoria.totalOportunidades + 1;
-      return await _dao.insertarOportunidad(
-        oportunidad.copyWith(numero: oportunidad.numero == 0
-            ? siguiente
-            : oportunidad.numero),
-      );
+      return await _dao.transaccion(() async {
+        final anterior = await obtenerPorId(oportunidad.auditoriaId);
+        final guardada = await _dao.insertarOportunidad(
+          oportunidad.copyWith(
+            numero: oportunidad.numero == 0
+                ? anterior.totalOportunidades + 1
+                : oportunidad.numero,
+          ),
+        );
+        await _dao.registrarCambios(anterior, await obtenerPorId(anterior.id));
+        return guardada;
+      });
     } on Fallo {
       rethrow;
     } catch (error) {
-      throw FalloLocal(
-        'No se pudo registrar la oportunidad.',
-        causa: error,
-      );
+      throw FalloLocal('No se pudo registrar la oportunidad.', causa: error);
     }
   }
 
   @override
   Future<void> eliminarOportunidad(int id) async {
     try {
-      await _dao.borrarOportunidad(id);
+      await _dao.transaccion(() async {
+        final auditoriaId = await _dao.auditoriaDeOportunidad(id);
+        if (auditoriaId == null) return;
+        final antes = await obtenerPorId(auditoriaId);
+        await _dao.borrarOportunidad(id);
+        await _dao.registrarCambios(antes, await obtenerPorId(auditoriaId));
+      });
     } catch (error) {
       throw FalloLocal('No se pudo eliminar la oportunidad.', causa: error);
     }

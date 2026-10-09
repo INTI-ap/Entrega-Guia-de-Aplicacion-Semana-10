@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import '../../../domain/entidades/auditoria.dart';
@@ -29,6 +30,10 @@ import '../aliases.dart' as g;
 /// La implementación real es [DriftAuditoriasDao]; la interfaz permite
 /// escribir un doble en memoria para los *widget tests*.
 abstract interface class AuditoriasDao {
+  Future<T> transaccion<T>(Future<T> Function() accion);
+  Future<void> registrarCambios(Auditoria anterior, Auditoria nueva);
+  Future<String?> auditoriaDeOportunidad(int id);
+
   /// Emite la lista completa cada vez que cambia `auditorias` o
   /// `oportunidades`.
   ///
@@ -115,6 +120,60 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
   DriftAuditoriasDao(super.db);
 
   @override
+  Future<T> transaccion<T>(Future<T> Function() accion) =>
+      attachedDatabase.transaction(accion);
+
+  @override
+  Future<void> registrarCambios(Auditoria anterior, Auditoria nueva) async {
+    final antes = _valores(anterior);
+    final despues = _valores(nueva);
+    final fecha = DateTime.now();
+    for (final campo in antes.keys) {
+      if (antes[campo] == despues[campo]) continue;
+      await into(attachedDatabase.auditoriasHistorial).insert(
+        db.AuditoriasHistorialCompanion.insert(
+          auditoriaId: nueva.id,
+          fecha: fecha,
+          campo: campo,
+          valorAnterior: Value(antes[campo]),
+          valorNuevo: Value(despues[campo]),
+        ),
+      );
+    }
+  }
+
+  Map<String, String?> _valores(Auditoria a) => {
+    'establecimientoId': a.establecimientoId,
+    'establecimientoNombre': a.establecimientoNombre,
+    'observadorDni': a.observadorDni,
+    'observadorNombre': a.observadorNombre,
+    'observadoDni': a.observadoDni,
+    'observadoNombre': a.observadoNombre,
+    'fecha': a.fecha.toIso8601String(),
+    'estado': a.estado.clave,
+    'eliminada': a.eliminada.toString(),
+    'sincronizadaEn': a.sincronizadaEn?.toIso8601String(),
+    'fechaInicio': a.fechaInicio?.toIso8601String(),
+    'fechaFin': a.fechaFin?.toIso8601String(),
+    'numeroCamas': a.numeroCamas?.toString(),
+    'consentimientoVerbal': a.consentimientoVerbal?.toString(),
+    'observacionGeneral': a.observacionGeneral,
+    'oportunidades': jsonEncode(
+      a.oportunidades
+          .map(
+            (o) => {
+              'numero': o.numero,
+              'momento': o.momento.clave,
+              'accion': o.accion.clave,
+              'observacion': o.observacion,
+              'duracionSegundos': o.duracionSegundos,
+            },
+          )
+          .toList(),
+    ),
+  };
+
+  @override
   Stream<List<Auditoria>> observar({bool incluirEliminadas = false}) {
     final SimpleSelectStatement<g.TablaAuditorias, db.Auditoria> consulta =
         select(attachedDatabase.auditorias);
@@ -123,9 +182,9 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
     }
 
     return consulta.watch().asyncMap(
-          (List<db.Auditoria> filas) =>
-              _conOportunidades(filas, incluirEliminadas: incluirEliminadas),
-        );
+      (List<db.Auditoria> filas) =>
+          _conOportunidades(filas, incluirEliminadas: incluirEliminadas),
+    );
   }
 
   @override
@@ -173,27 +232,28 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
 
   @override
   Future<Auditoria?> buscarPorId(String id) async {
-    final db.Auditoria? cabecera = await (select(attachedDatabase.auditorias)
-          ..where((g.TablaAuditorias t) => t.id.equals(id)))
-        .getSingleOrNull();
+    final db.Auditoria? cabecera = await (select(
+      attachedDatabase.auditorias,
+    )..where((g.TablaAuditorias t) => t.id.equals(id))).getSingleOrNull();
 
     if (cabecera == null) return null;
 
-    final List<db.Oportunidade> oportunidades =
-        await _oportunidadesDe(cabecera.id);
+    final List<db.Oportunidade> oportunidades = await _oportunidadesDe(
+      cabecera.id,
+    );
     return AuditoriaMapper.desdeFilas(cabecera, oportunidades);
   }
 
   @override
   Future<bool> insertarCabecera(Auditoria auditoria) async {
-    final db.Auditoria? existente = await (select(attachedDatabase.auditorias)
-          ..where((g.TablaAuditorias t) => t.id.equals(auditoria.id)))
-        .getSingleOrNull();
+    final db.Auditoria? existente =
+        await (select(attachedDatabase.auditorias)
+              ..where((g.TablaAuditorias t) => t.id.equals(auditoria.id)))
+            .getSingleOrNull();
 
     if (existente != null) return false;
 
-    await into(attachedDatabase.auditorias)
-        .insert(auditoria.aCabeceraFila());
+    await into(attachedDatabase.auditorias).insert(auditoria.aCabeceraFila());
     return true;
   }
 
@@ -208,12 +268,12 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
   ///     envío al servidor.
   @override
   Future<int> actualizarCabecera(Auditoria auditoria) {
-    return (update(attachedDatabase.auditorias)
-          ..where((g.TablaAuditorias t) => t.id.equals(auditoria.id)))
-        .write(
+    return (update(
+      attachedDatabase.auditorias,
+    )..where((g.TablaAuditorias t) => t.id.equals(auditoria.id))).write(
       auditoria.aCabeceraFila().copyWith(
-            actualizadoEn: Value<DateTime>(DateTime.now()),
-          ),
+        actualizadoEn: Value<DateTime>(DateTime.now()),
+      ),
     );
   }
 
@@ -221,9 +281,9 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
   /// físicamente para no perder la trazabilidad que exige la norma.
   @override
   Future<int> marcarEliminada(String id) {
-    return (update(attachedDatabase.auditorias)
-          ..where((g.TablaAuditorias t) => t.id.equals(id)))
-        .write(
+    return (update(
+      attachedDatabase.auditorias,
+    )..where((g.TablaAuditorias t) => t.id.equals(id))).write(
       db.AuditoriasCompanion(
         eliminada: const Value<bool>(true),
         actualizadoEn: Value<DateTime>(DateTime.now()),
@@ -234,9 +294,9 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
   /// **Reto 3.** Restauración de una auditoría anulada.
   @override
   Future<int> restaurar(String id) {
-    return (update(attachedDatabase.auditorias)
-          ..where((g.TablaAuditorias t) => t.id.equals(id)))
-        .write(
+    return (update(
+      attachedDatabase.auditorias,
+    )..where((g.TablaAuditorias t) => t.id.equals(id))).write(
       db.AuditoriasCompanion(
         eliminada: const Value<bool>(false),
         actualizadoEn: Value<DateTime>(DateTime.now()),
@@ -246,8 +306,9 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
 
   @override
   Future<int> borrarOportunidadesDe(String auditoriaId) {
-    return (delete(attachedDatabase.oportunidades)
-          ..where((g.TablaOportunidades t) => t.auditoriaId.equals(auditoriaId)))
+    return (delete(
+          attachedDatabase.oportunidades,
+        )..where((g.TablaOportunidades t) => t.auditoriaId.equals(auditoriaId)))
         .go();
   }
 
@@ -255,16 +316,27 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
   Future<OportunidadRegistro> insertarOportunidad(
     OportunidadRegistro oportunidad,
   ) async {
-    final int id = await into(attachedDatabase.oportunidades)
-        .insert(oportunidad.aFila());
+    final int id = await into(
+      attachedDatabase.oportunidades,
+    ).insert(oportunidad.aFila());
     return oportunidad.copyWith(id: id);
   }
 
   @override
+  Future<String?> auditoriaDeOportunidad(int id) async {
+    final fila = await customSelect(
+      'SELECT auditoria_id FROM oportunidades WHERE id = ?',
+      variables: [Variable<int>(id)],
+      readsFrom: {attachedDatabase.oportunidades},
+    ).getSingleOrNull();
+    return fila?.read<String>('auditoria_id');
+  }
+
+  @override
   Future<int> borrarOportunidad(int id) {
-    return (delete(attachedDatabase.oportunidades)
-          ..where((g.TablaOportunidades t) => t.id.equals(id)))
-        .go();
+    return (delete(
+      attachedDatabase.oportunidades,
+    )..where((g.TablaOportunidades t) => t.id.equals(id))).go();
   }
 
   /// **Versión base con SQL agregado.**
@@ -287,8 +359,9 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
     };
 
     for (final QueryRow fila in filas) {
-      final EstadoAuditoria estado =
-          EstadoAuditoria.desdeClave(fila.read<String>('estado'));
+      final EstadoAuditoria estado = EstadoAuditoria.desdeClave(
+        fila.read<String>('estado'),
+      );
       conteo[estado] = fila.read<int>('total');
     }
 
@@ -394,10 +467,8 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
     final SimpleSelectStatement<g.TablaAuditorias, db.Auditoria> consulta =
         select(attachedDatabase.auditorias)
           ..orderBy(<OrderClauseGenerator<g.TablaAuditorias>>[
-            (g.TablaAuditorias t) => OrderingTerm(
-                  expression: t.fecha,
-                  mode: OrderingMode.desc,
-                ),
+            (g.TablaAuditorias t) =>
+                OrderingTerm(expression: t.fecha, mode: OrderingMode.desc),
           ]);
     if (!incluirEliminadas) {
       consulta.where((g.TablaAuditorias t) => t.eliminada.equals(false));
@@ -423,8 +494,9 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
   }) async {
     final List<Auditoria> resultado = <Auditoria>[];
     for (final db.Auditoria fila in filas) {
-      final List<db.Oportunidade> oportunidades =
-          await _oportunidadesDe(fila.id);
+      final List<db.Oportunidade> oportunidades = await _oportunidadesDe(
+        fila.id,
+      );
       resultado.add(AuditoriaMapper.desdeFilas(fila, oportunidades));
     }
     return resultado;

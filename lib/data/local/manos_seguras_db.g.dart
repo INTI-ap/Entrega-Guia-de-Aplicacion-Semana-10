@@ -2216,6 +2216,426 @@ class AuditoriasCompanion extends UpdateCompanion<Auditoria> {
   }
 }
 
+class $AuditoriasHistorialTable extends AuditoriasHistorial
+    with TableInfo<$AuditoriasHistorialTable, AuditoriasHistorialData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AuditoriasHistorialTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _auditoriaIdMeta = const VerificationMeta(
+    'auditoriaId',
+  );
+  @override
+  late final GeneratedColumn<String> auditoriaId = GeneratedColumn<String>(
+    'auditoria_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES auditorias (id)',
+    ),
+  );
+  static const VerificationMeta _fechaMeta = const VerificationMeta('fecha');
+  @override
+  late final GeneratedColumn<DateTime> fecha = GeneratedColumn<DateTime>(
+    'fecha',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _campoMeta = const VerificationMeta('campo');
+  @override
+  late final GeneratedColumn<String> campo = GeneratedColumn<String>(
+    'campo',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _valorAnteriorMeta = const VerificationMeta(
+    'valorAnterior',
+  );
+  @override
+  late final GeneratedColumn<String> valorAnterior = GeneratedColumn<String>(
+    'valor_anterior',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _valorNuevoMeta = const VerificationMeta(
+    'valorNuevo',
+  );
+  @override
+  late final GeneratedColumn<String> valorNuevo = GeneratedColumn<String>(
+    'valor_nuevo',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    auditoriaId,
+    fecha,
+    campo,
+    valorAnterior,
+    valorNuevo,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'auditorias_historial';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<AuditoriasHistorialData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('auditoria_id')) {
+      context.handle(
+        _auditoriaIdMeta,
+        auditoriaId.isAcceptableOrUnknown(
+          data['auditoria_id']!,
+          _auditoriaIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_auditoriaIdMeta);
+    }
+    if (data.containsKey('fecha')) {
+      context.handle(
+        _fechaMeta,
+        fecha.isAcceptableOrUnknown(data['fecha']!, _fechaMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fechaMeta);
+    }
+    if (data.containsKey('campo')) {
+      context.handle(
+        _campoMeta,
+        campo.isAcceptableOrUnknown(data['campo']!, _campoMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_campoMeta);
+    }
+    if (data.containsKey('valor_anterior')) {
+      context.handle(
+        _valorAnteriorMeta,
+        valorAnterior.isAcceptableOrUnknown(
+          data['valor_anterior']!,
+          _valorAnteriorMeta,
+        ),
+      );
+    }
+    if (data.containsKey('valor_nuevo')) {
+      context.handle(
+        _valorNuevoMeta,
+        valorNuevo.isAcceptableOrUnknown(data['valor_nuevo']!, _valorNuevoMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AuditoriasHistorialData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AuditoriasHistorialData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      auditoriaId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}auditoria_id'],
+      )!,
+      fecha: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}fecha'],
+      )!,
+      campo: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}campo'],
+      )!,
+      valorAnterior: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}valor_anterior'],
+      ),
+      valorNuevo: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}valor_nuevo'],
+      ),
+    );
+  }
+
+  @override
+  $AuditoriasHistorialTable createAlias(String alias) {
+    return $AuditoriasHistorialTable(attachedDatabase, alias);
+  }
+}
+
+class AuditoriasHistorialData extends DataClass
+    implements Insertable<AuditoriasHistorialData> {
+  final int id;
+  final String auditoriaId;
+  final DateTime fecha;
+  final String campo;
+  final String? valorAnterior;
+  final String? valorNuevo;
+  const AuditoriasHistorialData({
+    required this.id,
+    required this.auditoriaId,
+    required this.fecha,
+    required this.campo,
+    this.valorAnterior,
+    this.valorNuevo,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['auditoria_id'] = Variable<String>(auditoriaId);
+    map['fecha'] = Variable<DateTime>(fecha);
+    map['campo'] = Variable<String>(campo);
+    if (!nullToAbsent || valorAnterior != null) {
+      map['valor_anterior'] = Variable<String>(valorAnterior);
+    }
+    if (!nullToAbsent || valorNuevo != null) {
+      map['valor_nuevo'] = Variable<String>(valorNuevo);
+    }
+    return map;
+  }
+
+  AuditoriasHistorialCompanion toCompanion(bool nullToAbsent) {
+    return AuditoriasHistorialCompanion(
+      id: Value(id),
+      auditoriaId: Value(auditoriaId),
+      fecha: Value(fecha),
+      campo: Value(campo),
+      valorAnterior: valorAnterior == null && nullToAbsent
+          ? const Value.absent()
+          : Value(valorAnterior),
+      valorNuevo: valorNuevo == null && nullToAbsent
+          ? const Value.absent()
+          : Value(valorNuevo),
+    );
+  }
+
+  factory AuditoriasHistorialData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AuditoriasHistorialData(
+      id: serializer.fromJson<int>(json['id']),
+      auditoriaId: serializer.fromJson<String>(json['auditoriaId']),
+      fecha: serializer.fromJson<DateTime>(json['fecha']),
+      campo: serializer.fromJson<String>(json['campo']),
+      valorAnterior: serializer.fromJson<String?>(json['valorAnterior']),
+      valorNuevo: serializer.fromJson<String?>(json['valorNuevo']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'auditoriaId': serializer.toJson<String>(auditoriaId),
+      'fecha': serializer.toJson<DateTime>(fecha),
+      'campo': serializer.toJson<String>(campo),
+      'valorAnterior': serializer.toJson<String?>(valorAnterior),
+      'valorNuevo': serializer.toJson<String?>(valorNuevo),
+    };
+  }
+
+  AuditoriasHistorialData copyWith({
+    int? id,
+    String? auditoriaId,
+    DateTime? fecha,
+    String? campo,
+    Value<String?> valorAnterior = const Value.absent(),
+    Value<String?> valorNuevo = const Value.absent(),
+  }) => AuditoriasHistorialData(
+    id: id ?? this.id,
+    auditoriaId: auditoriaId ?? this.auditoriaId,
+    fecha: fecha ?? this.fecha,
+    campo: campo ?? this.campo,
+    valorAnterior: valorAnterior.present
+        ? valorAnterior.value
+        : this.valorAnterior,
+    valorNuevo: valorNuevo.present ? valorNuevo.value : this.valorNuevo,
+  );
+  AuditoriasHistorialData copyWithCompanion(AuditoriasHistorialCompanion data) {
+    return AuditoriasHistorialData(
+      id: data.id.present ? data.id.value : this.id,
+      auditoriaId: data.auditoriaId.present
+          ? data.auditoriaId.value
+          : this.auditoriaId,
+      fecha: data.fecha.present ? data.fecha.value : this.fecha,
+      campo: data.campo.present ? data.campo.value : this.campo,
+      valorAnterior: data.valorAnterior.present
+          ? data.valorAnterior.value
+          : this.valorAnterior,
+      valorNuevo: data.valorNuevo.present
+          ? data.valorNuevo.value
+          : this.valorNuevo,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AuditoriasHistorialData(')
+          ..write('id: $id, ')
+          ..write('auditoriaId: $auditoriaId, ')
+          ..write('fecha: $fecha, ')
+          ..write('campo: $campo, ')
+          ..write('valorAnterior: $valorAnterior, ')
+          ..write('valorNuevo: $valorNuevo')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, auditoriaId, fecha, campo, valorAnterior, valorNuevo);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AuditoriasHistorialData &&
+          other.id == this.id &&
+          other.auditoriaId == this.auditoriaId &&
+          other.fecha == this.fecha &&
+          other.campo == this.campo &&
+          other.valorAnterior == this.valorAnterior &&
+          other.valorNuevo == this.valorNuevo);
+}
+
+class AuditoriasHistorialCompanion
+    extends UpdateCompanion<AuditoriasHistorialData> {
+  final Value<int> id;
+  final Value<String> auditoriaId;
+  final Value<DateTime> fecha;
+  final Value<String> campo;
+  final Value<String?> valorAnterior;
+  final Value<String?> valorNuevo;
+  const AuditoriasHistorialCompanion({
+    this.id = const Value.absent(),
+    this.auditoriaId = const Value.absent(),
+    this.fecha = const Value.absent(),
+    this.campo = const Value.absent(),
+    this.valorAnterior = const Value.absent(),
+    this.valorNuevo = const Value.absent(),
+  });
+  AuditoriasHistorialCompanion.insert({
+    this.id = const Value.absent(),
+    required String auditoriaId,
+    required DateTime fecha,
+    required String campo,
+    this.valorAnterior = const Value.absent(),
+    this.valorNuevo = const Value.absent(),
+  }) : auditoriaId = Value(auditoriaId),
+       fecha = Value(fecha),
+       campo = Value(campo);
+  static Insertable<AuditoriasHistorialData> custom({
+    Expression<int>? id,
+    Expression<String>? auditoriaId,
+    Expression<DateTime>? fecha,
+    Expression<String>? campo,
+    Expression<String>? valorAnterior,
+    Expression<String>? valorNuevo,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (auditoriaId != null) 'auditoria_id': auditoriaId,
+      if (fecha != null) 'fecha': fecha,
+      if (campo != null) 'campo': campo,
+      if (valorAnterior != null) 'valor_anterior': valorAnterior,
+      if (valorNuevo != null) 'valor_nuevo': valorNuevo,
+    });
+  }
+
+  AuditoriasHistorialCompanion copyWith({
+    Value<int>? id,
+    Value<String>? auditoriaId,
+    Value<DateTime>? fecha,
+    Value<String>? campo,
+    Value<String?>? valorAnterior,
+    Value<String?>? valorNuevo,
+  }) {
+    return AuditoriasHistorialCompanion(
+      id: id ?? this.id,
+      auditoriaId: auditoriaId ?? this.auditoriaId,
+      fecha: fecha ?? this.fecha,
+      campo: campo ?? this.campo,
+      valorAnterior: valorAnterior ?? this.valorAnterior,
+      valorNuevo: valorNuevo ?? this.valorNuevo,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (auditoriaId.present) {
+      map['auditoria_id'] = Variable<String>(auditoriaId.value);
+    }
+    if (fecha.present) {
+      map['fecha'] = Variable<DateTime>(fecha.value);
+    }
+    if (campo.present) {
+      map['campo'] = Variable<String>(campo.value);
+    }
+    if (valorAnterior.present) {
+      map['valor_anterior'] = Variable<String>(valorAnterior.value);
+    }
+    if (valorNuevo.present) {
+      map['valor_nuevo'] = Variable<String>(valorNuevo.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AuditoriasHistorialCompanion(')
+          ..write('id: $id, ')
+          ..write('auditoriaId: $auditoriaId, ')
+          ..write('fecha: $fecha, ')
+          ..write('campo: $campo, ')
+          ..write('valorAnterior: $valorAnterior, ')
+          ..write('valorNuevo: $valorNuevo')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $OportunidadesTable extends Oportunidades
     with TableInfo<$OportunidadesTable, Oportunidade> {
   @override
@@ -3850,6 +4270,8 @@ abstract class _$ManosSegurasDb extends GeneratedDatabase {
   );
   late final $PersonalTable personal = $PersonalTable(this);
   late final $AuditoriasTable auditorias = $AuditoriasTable(this);
+  late final $AuditoriasHistorialTable auditoriasHistorial =
+      $AuditoriasHistorialTable(this);
   late final $OportunidadesTable oportunidades = $OportunidadesTable(this);
   late final $IndicadoresCacheTable indicadoresCache = $IndicadoresCacheTable(
     this,
@@ -3874,6 +4296,7 @@ abstract class _$ManosSegurasDb extends GeneratedDatabase {
     establecimientos,
     personal,
     auditorias,
+    auditoriasHistorial,
     oportunidades,
     indicadoresCache,
     sincronizaciones,

@@ -92,10 +92,7 @@ class _PantallaAuditoriaDetalleState extends State<PantallaAuditoriaDetalle> {
       ),
       body: FutureBuilder<Auditoria>(
         future: _futuro,
-        builder: (
-          BuildContext context,
-          AsyncSnapshot<Auditoria> snapshot,
-        ) {
+        builder: (BuildContext context, AsyncSnapshot<Auditoria> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const EstadoCarga(mensaje: 'Leyendo la auditoría…');
           }
@@ -118,6 +115,20 @@ class _PantallaAuditoriaDetalleState extends State<PantallaAuditoriaDetalle> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
                   _Cabecera(auditoria: auditoria),
+                  if (auditoria.observacionGeneral?.isNotEmpty ?? false)
+                    TarjetaBase(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Observación general',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(auditoria.observacionGeneral!),
+                        ],
+                      ),
+                    ),
                   const SizedBox(height: 8),
                   TituloSeccion(
                     'Oportunidades (${auditoria.totalOportunidades})',

@@ -28,9 +28,7 @@ abstract interface class AuditoriaRepository {
   Stream<List<Auditoria>> observarAuditorias({bool incluirEliminadas = false});
 
   /// Lista puntual (útil para pruebas y para exportar).
-  Future<List<Auditoria>> listarAuditorias({
-    bool incluirEliminadas = false,
-  });
+  Future<List<Auditoria>> listarAuditorias({bool incluirEliminadas = false});
 
   /// Lista las auditorías activas en el rango de fechas [desde] y [hasta] (Reto 1).
   Future<List<Auditoria>> listarPorRango(DateTime desde, DateTime hasta);
@@ -59,6 +57,9 @@ abstract interface class AuditoriaRepository {
 
   /// Restaura una auditoría marcada como anulada (`eliminada = false`). Reto 3.
   Future<void> restaurar(String id);
+
+  /// Copia cabecera y oportunidades a un borrador nuevo con fecha actual.
+  Future<String> duplicar(String id);
 
   /// Agrega una oportunidad a una auditoría ya guardada.
   Future<OportunidadRegistro> agregarOportunidad(

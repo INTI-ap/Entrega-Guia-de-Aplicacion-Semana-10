@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 // archivo, por diseño, no importa entidades del dominio ni mapeadores: solo
 // declara el esquema, la versión y las migraciones.
 import 'tablas/auditorias.dart';
+import 'tablas/auditorias_historial.dart';
 import 'tablas/establecimientos.dart';
 import 'tablas/indicadores_cache.dart';
 import 'tablas/oportunidades.dart';
@@ -49,6 +50,7 @@ part 'manos_seguras_db.g.dart';
     Establecimientos,
     Personal,
     Auditorias,
+    AuditoriasHistorial,
     Oportunidades,
     IndicadoresCache,
     Sincronizaciones,
@@ -59,7 +61,7 @@ class ManosSegurasDb extends _$ManosSegurasDb {
   ManosSegurasDb(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   /// Estrategia de migración.
   ///
@@ -94,6 +96,9 @@ class ManosSegurasDb extends _$ManosSegurasDb {
             "UPDATE auditorias SET observacion_general = '' "
             "WHERE observacion_general IS NULL",
           );
+        }
+        if (desde < 3) {
+          await m.createTable(auditoriasHistorial);
         }
       },
       beforeOpen: (OpeningDetails detalles) async {
@@ -140,6 +145,7 @@ class ManosSegurasDb extends _$ManosSegurasDb {
       'establecimientos': await contar(establecimientos),
       'personal': await contar(personal),
       'auditorias': await contar(auditorias),
+      'auditorias_historial': await contar(auditoriasHistorial),
       'oportunidades': await contar(oportunidades),
       'indicadores_cache': await contar(indicadoresCache),
       'preferencias': await contar(preferencias),
@@ -161,6 +167,7 @@ class ManosSegurasDb extends _$ManosSegurasDb {
   /// laboratorio para dejar la base en un estado reproducible).
   Future<void> limpiarAuditorias() async {
     await transaction(() async {
+      await delete(auditoriasHistorial).go();
       await delete(oportunidades).go();
       await delete(auditorias).go();
     });
