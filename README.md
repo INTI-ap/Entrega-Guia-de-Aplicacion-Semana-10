@@ -167,3 +167,20 @@ como no presentado**.
   Structure*. Prentice Hall.
 - Organización Mundial de la Salud. (2026). *Global Health Observatory:
   indicador WSH_HYGIENE_BASIC*. https://www.who.int/data/gho
+
+## Reto 3: ciclo de vida de las auditorías
+
+Desde Auditorías guardadas se puede editar la cabecera, duplicar una auditoría o anularla. El formulario carga los valores actuales y conserva la fecha original y las oportunidades. Papelera muestra únicamente las anuladas y permite restaurarlas. Duplicar crea un UUID v4 nuevo, usa la fecha actual y el estado borrador, y copia las oportunidades sin reutilizar sus identificadores ni las marcas de sincronización.
+
+Los cambios de cabecera, estado, anulación y oportunidades se registran en `auditorias_historial` con fecha, campo, valor anterior y nuevo. El repositorio confirma la modificación y el historial en una misma transacción; si falla una escritura, revierte todo. La edición de cabecera conserva también los IDs de las oportunidades. La tabla nueva requiere la versión 3 del esquema y una migración incremental desde v2; se mantiene la migración anterior desde v1.
+
+La implementación respeta las capas `domain`, `data` y `presentation`; la interfaz utiliza `AuditoriaRepository` y no importa Drift. Las capturas reales se entregan fuera del repositorio para insertarlas en el informe.
+
+```text
+dart run build_runner build
+flutter analyze --fatal-infos --no-pub
+flutter test --no-pub
+flutter test --no-pub test/data/reto_3_ciclo_de_vida_test.dart test/presentation/pantallas_test.dart
+```
+
+Las pruebas específicas cubren conservación del detalle, filtros de activas, restauración, duplicación con UUID, historial, rollback y migración con datos. Las pruebas de interfaz comprueban el formulario, la papelera y la acción de duplicar.

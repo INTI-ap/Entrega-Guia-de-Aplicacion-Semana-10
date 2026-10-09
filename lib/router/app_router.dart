@@ -29,6 +29,10 @@ final GoRouter appRouter = GoRouter(
   debugLogDiagnostics: true,
   routes: <RouteBase>[
     GoRoute(
+      path: '/papelera',
+      builder: (context, state) => const PantallaAuditorias(papelera: true),
+    ),
+    GoRoute(
       path: '/',
       name: 'bienvenida',
       builder: (BuildContext context, GoRouterState state) =>

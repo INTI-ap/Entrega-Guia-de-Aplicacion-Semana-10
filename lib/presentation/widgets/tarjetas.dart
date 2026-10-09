@@ -133,12 +133,16 @@ class TarjetaAuditoria extends StatelessWidget {
     this.alTocar,
     this.alEditar,
     this.alAnular,
+    this.alRestaurar,
+    this.alDuplicar,
   });
 
   final Auditoria auditoria;
   final VoidCallback? alTocar;
   final VoidCallback? alEditar;
   final VoidCallback? alAnular;
+  final VoidCallback? alRestaurar;
+  final VoidCallback? alDuplicar;
 
   @override
   Widget build(BuildContext context) {
@@ -198,10 +202,7 @@ class TarjetaAuditoria extends StatelessWidget {
                     formatearPorcentaje(
                       auditoria.tieneDatos ? adherencia : null,
                     ),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, color: color),
                   ),
                 ),
               ],
@@ -230,12 +231,27 @@ class TarjetaAuditoria extends StatelessWidget {
                   ),
               ],
             ),
-            if (alEditar != null || alAnular != null) ...<Widget>[
+            if (alEditar != null ||
+                alAnular != null ||
+                alRestaurar != null ||
+                alDuplicar != null) ...<Widget>[
               const SizedBox(height: 8),
               const Divider(height: 1),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              Wrap(
+                alignment: WrapAlignment.end,
                 children: <Widget>[
+                  if (alRestaurar != null)
+                    TextButton.icon(
+                      onPressed: alRestaurar,
+                      icon: const Icon(Icons.restore, size: 18),
+                      label: const Text('Restaurar'),
+                    ),
+                  if (alDuplicar != null)
+                    TextButton.icon(
+                      onPressed: alDuplicar,
+                      icon: const Icon(Icons.copy, size: 18),
+                      label: const Text('Duplicar'),
+                    ),
                   if (alEditar != null)
                     TextButton.icon(
                       onPressed: alEditar,

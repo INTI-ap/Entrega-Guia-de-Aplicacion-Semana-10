@@ -47,54 +47,56 @@ void main() {
     }
   });
 
-  test('una base v1 con datos se abre con el esquema actual sin perder nada',
-      () async {
-    // 1. Base creada a mano con el esquema v1 y con datos reales.
-    _crearBaseVersion1(archivo);
+  test(
+    'una base v1 con datos se abre con el esquema actual sin perder nada',
+    () async {
+      // 1. Base creada a mano con el esquema v1 y con datos reales.
+      _crearBaseVersion1(archivo);
 
-    // 2. Se abre con la clase actual (drift ejecutará onCreate o onUpgrade
-    //    según el `user_version` que encontró).
-    final ManosSegurasDb base = ManosSegurasDb(NativeDatabase(archivo));
-    addTearDown(base.close);
+      // 2. Se abre con la clase actual (drift ejecutará onCreate o onUpgrade
+      //    según el `user_version` que encontró).
+      final ManosSegurasDb base = ManosSegurasDb(NativeDatabase(archivo));
+      addTearDown(base.close);
 
-    final AuditoriaRepository repositorio = AuditoriaRepositoryDrift(
-      InfraestructuraLocal(base).auditoriasDao,
-    );
+      final AuditoriaRepository repositorio = AuditoriaRepositoryDrift(
+        InfraestructuraLocal(base).auditoriasDao,
+      );
 
-    // 3. Si el esquema no cambió, esto se cumple trivialmente. Si el equipo
-    //    subió schemaVersion sin escribir la migración, aquí se ve el fallo.
-    final List<Auditoria> auditorias = await repositorio.listarAuditorias();
-    expect(
-      auditorias,
-      hasLength(1),
-      reason: 'La migración perdió las auditorías existentes.',
-    );
-    expect(auditorias.single.id, 'auditoria-preexistente');
-    expect(auditorias.single.totalOportunidades, 2);
-    expect(auditorias.single.oportunidadesCumplidas, 1);
+      // 3. Si el esquema no cambió, esto se cumple trivialmente. Si el equipo
+      //    subió schemaVersion sin escribir la migración, aquí se ve el fallo.
+      final List<Auditoria> auditorias = await repositorio.listarAuditorias();
+      expect(
+        auditorias,
+        hasLength(1),
+        reason: 'La migración perdió las auditorías existentes.',
+      );
+      expect(auditorias.single.id, 'auditoria-preexistente');
+      expect(auditorias.single.totalOportunidades, 2);
+      expect(auditorias.single.oportunidadesCumplidas, 1);
 
-    // 4. La cabecera sigue siendo escribible después de migrar.
-    await repositorio.actualizar(
-      auditorias.single.copyWith(estado: EstadoAuditoria.finalizada),
-    );
-    final Auditoria actualizada =
-        await repositorio.obtenerPorId('auditoria-preexistente');
-    expect(actualizada.estado, EstadoAuditoria.finalizada);
-  });
+      // 4. La cabecera sigue siendo escribible después de migrar.
+      await repositorio.actualizar(
+        auditorias.single.copyWith(estado: EstadoAuditoria.finalizada),
+      );
+      final Auditoria actualizada = await repositorio.obtenerPorId(
+        'auditoria-preexistente',
+      );
+      expect(actualizada.estado, EstadoAuditoria.finalizada);
+    },
+  );
 
   // Test que documenta el estado final esperado del Reto 4. Se deja "saltado"
   // a propósito: el equipo debe quitar el `skip` cuando suba el esquema a la
   // versión 2 y la comparación tenga sentido.
   test(
-    'la versión del esquema es 2 (Reto 4 completado)',
+    'la versión del esquema incluye historial y mantiene la migración del Reto 4)',
     () {
       final ManosSegurasDb base = ManosSegurasDb(NativeDatabase.memory());
       addTearDown(base.close);
       expect(
         base.schemaVersion,
-        2,
-        reason: 'Suba schemaVersion a 2 y descomente la migración en '
-            'manos_seguras_db.dart para completar el Reto 4.',
+        3,
+        reason: 'La versión 3 añade historial a la base v2 existente.',
       );
     },
   );

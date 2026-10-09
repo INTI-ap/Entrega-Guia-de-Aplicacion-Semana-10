@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -96,7 +97,7 @@ void main() {
   // -----------------------------------------------------------------
   group('Esquema y migraciones', () {
     test('la versión del esquema es la esperada (Reto 4 completado)', () {
-      expect(base.schemaVersion, 2);
+      expect(base.schemaVersion, 3);
     });
 
     test('las claves foráneas se activan en beforeOpen (Reto 5)', () async {
@@ -105,43 +106,50 @@ void main() {
 
     test('todas las tablas se crean vacías', () async {
       final Map<String, int> conteos = await base.contarFilas();
-      expect(conteos.keys, containsAll(<String>[
-        'establecimientos',
-        'personal',
-        'auditorias',
-        'oportunidades',
-        'indicadores_cache',
-        'preferencias',
-      ]));
+      expect(
+        conteos.keys,
+        containsAll(<String>[
+          'establecimientos',
+          'personal',
+          'auditorias',
+          'oportunidades',
+          'indicadores_cache',
+          'preferencias',
+        ]),
+      );
       for (final int total in conteos.values) {
         expect(total, 0);
       }
     });
 
-    test('crear una tabla dos veces no falla (idempotencia de createAll)',
-        () async {
-      expect(await base.contarFilas(), isNotEmpty);
-    });
+    test(
+      'crear una tabla dos veces no falla (idempotencia de createAll)',
+      () async {
+        expect(await base.contarFilas(), isNotEmpty);
+      },
+    );
   });
 
   // -----------------------------------------------------------------
   group('Reto 1 — CRUD de auditorías (CREATE y READ)', () {
-    test('guardar una auditoría asigna id y persiste cabecera y detalle',
-        () async {
-      await sembrarCatalogos();
-      final String id = await repositorio.guardar(
-        _auditoria(id: '', oportunidades: _cincoOportunidades(2)),
-      );
+    test(
+      'guardar una auditoría asigna id y persiste cabecera y detalle',
+      () async {
+        await sembrarCatalogos();
+        final String id = await repositorio.guardar(
+          _auditoria(id: '', oportunidades: _cincoOportunidades(2)),
+        );
 
-      expect(id, 'id-generado-por-la-prueba');
+        expect(id, 'id-generado-por-la-prueba');
 
-      final Auditoria guardada = await repositorio.obtenerPorId(id);
-      expect(guardada.establecimientoNombre, 'Hospital Regional del Cusco');
-      expect(guardada.totalOportunidades, 5);
-      expect(guardada.oportunidadesCumplidas, 3);
-      expect(guardada.omisiones, 2);
-      expect(guardada.porcentajeAdherencia, 60.0);
-    });
+        final Auditoria guardada = await repositorio.obtenerPorId(id);
+        expect(guardada.establecimientoNombre, 'Hospital Regional del Cusco');
+        expect(guardada.totalOportunidades, 5);
+        expect(guardada.oportunidadesCumplidas, 3);
+        expect(guardada.omisiones, 2);
+        expect(guardada.porcentajeAdherencia, 60.0);
+      },
+    );
 
     test('las oportunidades quedan numeradas 1..5', () async {
       await sembrarCatalogos();
@@ -164,93 +172,102 @@ void main() {
       );
     });
 
-    test('obtenerPorId con un id inexistente lanza FalloNoEncontrado',
-        () async {
-      expect(
-        () => repositorio.obtenerPorId('no-existe'),
-        throwsA(isA<FalloNoEncontrado>()),
-      );
-    });
+    test(
+      'obtenerPorId con un id inexistente lanza FalloNoEncontrado',
+      () async {
+        expect(
+          () => repositorio.obtenerPorId('no-existe'),
+          throwsA(isA<FalloNoEncontrado>()),
+        );
+      },
+    );
 
-    test('listarAuditorias devuelve las auditorías ordenadas por fecha',
-        () async {
-      await sembrarCatalogos();
-      await repositorio.guardar(
-        _auditoria(id: 'a', fecha: DateTime(2026, 1, 1)),
-      );
-      await repositorio.guardar(
-        _auditoria(id: 'b', fecha: DateTime(2026, 6, 1)),
-      );
+    test(
+      'listarAuditorias devuelve las auditorías ordenadas por fecha',
+      () async {
+        await sembrarCatalogos();
+        await repositorio.guardar(
+          _auditoria(id: 'a', fecha: DateTime(2026, 1, 1)),
+        );
+        await repositorio.guardar(
+          _auditoria(id: 'b', fecha: DateTime(2026, 6, 1)),
+        );
 
-      final List<Auditoria> lista = await repositorio.listarAuditorias();
-      expect(lista.map((Auditoria a) => a.id), <String>['b', 'a']);
-    });
+        final List<Auditoria> lista = await repositorio.listarAuditorias();
+        expect(lista.map((Auditoria a) => a.id), <String>['b', 'a']);
+      },
+    );
 
     test('observarAuditorias emite la lista al guardar', () async {
       await sembrarCatalogos();
-      final Stream<List<Auditoria>> flujo =
-          repositorio.observarAuditorias();
+      final Stream<List<Auditoria>> flujo = repositorio.observarAuditorias();
 
-      final Future<List<Auditoria>> segundoEvento =
-          flujo.skip(1).first; // el primero es la lista vacía inicial
-
-      await repositorio.guardar(_auditoria(id: 'observada'));
-
-      final List<Auditoria> evento = await segundoEvento;
-      expect(evento, hasLength(1));
-      expect(evento.first.id, 'observada');
+      // Espera la lectura inicial antes de escribir: la transacción emite una sola actualización.
+      final eventos = StreamIterator(flujo);
+      try {
+        expect(await eventos.moveNext(), isTrue);
+        expect(eventos.current, isEmpty);
+        await repositorio.guardar(_auditoria(id: 'observada'));
+        expect(await eventos.moveNext(), isTrue);
+        expect(eventos.current, hasLength(1));
+        expect(eventos.current.first.id, 'observada');
+      } finally {
+        await eventos.cancel();
+      }
     });
 
-    test('Reto 1 - columnas nuevas del formulario oficial se persisten y leen',
-        () async {
-      await sembrarCatalogos();
-      final DateTime inicio = DateTime(2026, 10, 8, 9, 0);
-      final DateTime fin = DateTime(2026, 10, 8, 9, 30);
-      final String id = await repositorio.guardar(
-        _auditoria(
-          id: 'con-formulario-oficial',
-        ).copyWith(
-          fechaInicio: inicio,
-          fechaFin: fin,
-          numeroCamas: 25,
-          consentimientoVerbal: true,
-          observacionGeneral: 'Observación de prueba',
-        ),
-      );
+    test(
+      'Reto 1 - columnas nuevas del formulario oficial se persisten y leen',
+      () async {
+        await sembrarCatalogos();
+        final DateTime inicio = DateTime(2026, 10, 8, 9, 0);
+        final DateTime fin = DateTime(2026, 10, 8, 9, 30);
+        final String id = await repositorio.guardar(
+          _auditoria(id: 'con-formulario-oficial').copyWith(
+            fechaInicio: inicio,
+            fechaFin: fin,
+            numeroCamas: 25,
+            consentimientoVerbal: true,
+            observacionGeneral: 'Observación de prueba',
+          ),
+        );
 
-      final Auditoria leida = await repositorio.obtenerPorId(id);
-      expect(leida.fechaInicio, inicio);
-      expect(leida.fechaFin, fin);
-      expect(leida.numeroCamas, 25);
-      expect(leida.consentimientoVerbal, isTrue);
-      expect(leida.observacionGeneral, 'Observación de prueba');
-    });
+        final Auditoria leida = await repositorio.obtenerPorId(id);
+        expect(leida.fechaInicio, inicio);
+        expect(leida.fechaFin, fin);
+        expect(leida.numeroCamas, 25);
+        expect(leida.consentimientoVerbal, isTrue);
+        expect(leida.observacionGeneral, 'Observación de prueba');
+      },
+    );
 
-    test('Reto 1 - listarPorRango filtra en SQL por fecha y excluye eliminadas',
-        () async {
-      await sembrarCatalogos();
-      await repositorio.guardar(
-        _auditoria(id: 'aud-enero', fecha: DateTime(2026, 1, 15)),
-      );
-      await repositorio.guardar(
-        _auditoria(id: 'aud-marzo', fecha: DateTime(2026, 3, 15)),
-      );
-      await repositorio.guardar(
-        _auditoria(id: 'aud-abril', fecha: DateTime(2026, 4, 15)),
-      );
-      await repositorio.guardar(
-        _auditoria(id: 'aud-julio', fecha: DateTime(2026, 7, 15)),
-      );
-      // Anulamos la de abril para verificar que no aparezca
-      await repositorio.eliminarLogicamente('aud-abril');
+    test(
+      'Reto 1 - listarPorRango filtra en SQL por fecha y excluye eliminadas',
+      () async {
+        await sembrarCatalogos();
+        await repositorio.guardar(
+          _auditoria(id: 'aud-enero', fecha: DateTime(2026, 1, 15)),
+        );
+        await repositorio.guardar(
+          _auditoria(id: 'aud-marzo', fecha: DateTime(2026, 3, 15)),
+        );
+        await repositorio.guardar(
+          _auditoria(id: 'aud-abril', fecha: DateTime(2026, 4, 15)),
+        );
+        await repositorio.guardar(
+          _auditoria(id: 'aud-julio', fecha: DateTime(2026, 7, 15)),
+        );
+        // Anulamos la de abril para verificar que no aparezca
+        await repositorio.eliminarLogicamente('aud-abril');
 
-      final List<Auditoria> rango = await repositorio.listarPorRango(
-        DateTime(2026, 2, 1),
-        DateTime(2026, 5, 1),
-      );
+        final List<Auditoria> rango = await repositorio.listarPorRango(
+          DateTime(2026, 2, 1),
+          DateTime(2026, 5, 1),
+        );
 
-      expect(rango.map((Auditoria a) => a.id), <String>['aud-marzo']);
-    });
+        expect(rango.map((Auditoria a) => a.id), <String>['aud-marzo']);
+      },
+    );
   });
 
   // -----------------------------------------------------------------
@@ -271,69 +288,77 @@ void main() {
       expect(actualizada.totalOportunidades, 5);
     });
 
-    test('actualizar una auditoría inexistente lanza FalloNoEncontrado',
-        () async {
-      expect(
-        () => repositorio.actualizar(_auditoria(id: 'fantasma')),
-        throwsA(isA<FalloNoEncontrado>()),
-      );
-    });
+    test(
+      'actualizar una auditoría inexistente lanza FalloNoEncontrado',
+      () async {
+        expect(
+          () => repositorio.actualizar(_auditoria(id: 'fantasma')),
+          throwsA(isA<FalloNoEncontrado>()),
+        );
+      },
+    );
 
-    test('eliminarLogicamente la oculta del listado pero no la borra',
-        () async {
-      await sembrarCatalogos();
-      final String id = await repositorio.guardar(_auditoria(id: 'anulable'));
+    test(
+      'eliminarLogicamente la oculta del listado pero no la borra',
+      () async {
+        await sembrarCatalogos();
+        final String id = await repositorio.guardar(_auditoria(id: 'anulable'));
 
-      await repositorio.eliminarLogicamente(id);
+        await repositorio.eliminarLogicamente(id);
 
-      expect(await repositorio.listarAuditorias(), isEmpty);
-      final List<Auditoria> conEliminadas =
-          await repositorio.listarAuditorias(incluirEliminadas: true);
-      expect(conEliminadas, hasLength(1));
-      expect(conEliminadas.single.eliminada, isTrue);
+        expect(await repositorio.listarAuditorias(), isEmpty);
+        final List<Auditoria> conEliminadas = await repositorio
+            .listarAuditorias(incluirEliminadas: true);
+        expect(conEliminadas, hasLength(1));
+        expect(conEliminadas.single.eliminada, isTrue);
 
-      // La fila sigue en la base: es trazabilidad, no basura.
-      final Map<String, int> conteos = await base.contarFilas();
-      expect(conteos['auditorias'], 1);
-    });
+        // La fila sigue en la base: es trazabilidad, no basura.
+        final Map<String, int> conteos = await base.contarFilas();
+        expect(conteos['auditorias'], 1);
+      },
+    );
 
     test('eliminarLogicamente dos veces es idempotente', () async {
       await sembrarCatalogos();
       final String id = await repositorio.guardar(_auditoria(id: 'doble'));
       await repositorio.eliminarLogicamente(id);
       await repositorio.eliminarLogicamente(id);
-      final List<Auditoria> conEliminadas =
-          await repositorio.listarAuditorias(incluirEliminadas: true);
+      final List<Auditoria> conEliminadas = await repositorio.listarAuditorias(
+        incluirEliminadas: true,
+      );
       expect(conEliminadas, hasLength(1));
     });
 
-    test('agregarOportunidad numera correlativamente después de las existentes',
-        () async {
-      await sembrarCatalogos();
-      final String id = await repositorio.guardar(
-        _auditoria(id: 'crece', oportunidades: _cincoOportunidades(0)),
-      );
+    test(
+      'agregarOportunidad numera correlativamente después de las existentes',
+      () async {
+        await sembrarCatalogos();
+        final String id = await repositorio.guardar(
+          _auditoria(id: 'crece', oportunidades: _cincoOportunidades(0)),
+        );
 
-      final OportunidadRegistro nueva = await repositorio.agregarOportunidad(
-        OportunidadRegistro(
-          auditoriaId: id,
-          numero: 0,
-          momento: Momento.despuesEntornoPaciente,
-          accion: Accion.lavadoDeManos,
-        ),
-      );
+        final OportunidadRegistro nueva = await repositorio.agregarOportunidad(
+          OportunidadRegistro(
+            auditoriaId: id,
+            numero: 0,
+            momento: Momento.despuesEntornoPaciente,
+            accion: Accion.lavadoDeManos,
+          ),
+        );
 
-      expect(nueva.numero, 6);
-      final Auditoria guardada = await repositorio.obtenerPorId(id);
-      expect(guardada.totalOportunidades, 6);
-    });
+        expect(nueva.numero, 6);
+        final Auditoria guardada = await repositorio.obtenerPorId(id);
+        expect(guardada.totalOportunidades, 6);
+      },
+    );
   });
 
   // -----------------------------------------------------------------
   group('Reto 1B — preferencias clave-valor', () {
     test('guardar y leer una preferencia (UPSERT)', () async {
-      final PreferenciasRepositoryDrift prefs =
-          PreferenciasRepositoryDrift(infra.preferenciasDao);
+      final PreferenciasRepositoryDrift prefs = PreferenciasRepositoryDrift(
+        infra.preferenciasDao,
+      );
 
       expect(await prefs.leer('tema.modo'), isNull);
       await prefs.guardar('tema.modo', 'oscuro');
@@ -346,28 +371,31 @@ void main() {
     });
 
     test('eliminar borra la preferencia', () async {
-      final PreferenciasRepositoryDrift prefs =
-          PreferenciasRepositoryDrift(infra.preferenciasDao);
+      final PreferenciasRepositoryDrift prefs = PreferenciasRepositoryDrift(
+        infra.preferenciasDao,
+      );
       await prefs.guardar('establecimiento.ultimo', '00006405');
       await prefs.eliminar('establecimiento.ultimo');
       expect(await prefs.leer('establecimiento.ultimo'), isNull);
     });
 
     test(
-        'Reto 1B - guardar preferencia registra timestamp en sincronizaciones',
-        () async {
-      final PreferenciasRepositoryDrift prefs =
-          PreferenciasRepositoryDrift(infra.preferenciasDao);
-      await prefs.guardar('tema.modo', 'oscuro');
+      'Reto 1B - guardar preferencia registra timestamp en sincronizaciones',
+      () async {
+        final PreferenciasRepositoryDrift prefs = PreferenciasRepositoryDrift(
+          infra.preferenciasDao,
+        );
+        await prefs.guardar('tema.modo', 'oscuro');
 
-      final sinc = await (base.select(base.sincronizaciones)
-            ..where((t) => t.codigo.equals('preferencias')))
-          .getSingleOrNull();
+        final sinc = await (base.select(
+          base.sincronizaciones,
+        )..where((t) => t.codigo.equals('preferencias'))).getSingleOrNull();
 
-      expect(sinc, isNotNull);
-      expect(sinc!.codigo, 'preferencias');
-      expect(sinc.ultimaSincronizacion, isNotNull);
-    });
+        expect(sinc, isNotNull);
+        expect(sinc!.codigo, 'preferencias');
+        expect(sinc.ultimaSincronizacion, isNotNull);
+      },
+    );
   });
 
   // -----------------------------------------------------------------
@@ -386,29 +414,25 @@ void main() {
       );
 
       expect(repo.cacheEsVigente(null), isFalse);
-      expect(
-        repo.cacheEsVigente(DateTime(2026, 10, 20, 11)),
-        isTrue,
-      );
-      expect(
-        repo.cacheEsVigente(DateTime(2026, 10, 18, 12)),
-        isFalse,
-      );
+      expect(repo.cacheEsVigente(DateTime(2026, 10, 20, 11)), isTrue);
+      expect(repo.cacheEsVigente(DateTime(2026, 10, 18, 12)), isFalse);
     });
 
-    test('reemplazarTodo guarda y escribe la marca de sincronización',
-        () async {
-      final DateTime momento = DateTime(2026, 10, 20, 12);
-      await dao.reemplazarTodo(_indicadores(3), momento: momento);
+    test(
+      'reemplazarTodo guarda y escribe la marca de sincronización',
+      () async {
+        final DateTime momento = DateTime(2026, 10, 20, 12);
+        await dao.reemplazarTodo(_indicadores(3), momento: momento);
 
-      final List<IndicadorHigiene> cache = await dao.leerTodo();
-      expect(cache, hasLength(3));
-      expect(cache.first.anio, 2020);
-      expect(
-        await dao.ultimaSincronizacion(HigieneApiService.codigoIndicador),
-        momento,
-      );
-    });
+        final List<IndicadorHigiene> cache = await dao.leerTodo();
+        expect(cache, hasLength(3));
+        expect(cache.first.anio, 2020);
+        expect(
+          await dao.ultimaSincronizacion(HigieneApiService.codigoIndicador),
+          momento,
+        );
+      },
+    );
 
     test('reemplazarTodo es idempotente (no acumula duplicados)', () async {
       await dao.reemplazarTodo(_indicadores(3), momento: DateTime(2026, 10, 1));
@@ -416,37 +440,41 @@ void main() {
       expect(await dao.leerTodo(), hasLength(3));
     });
 
-    test('sin caché y con el servicio caído devuelve el respaldo local',
-        () async {
-      final IndicadorRepositoryOfflineFirst repo = _repositorio(
-        dao: dao,
-        servicio: _servicioQueFalla(),
-      );
+    test(
+      'sin caché y con el servicio caído devuelve el respaldo local',
+      () async {
+        final IndicadorRepositoryOfflineFirst repo = _repositorio(
+          dao: dao,
+          servicio: _servicioQueFalla(),
+        );
 
-      final ResultadoIndicadores resultado = await repo.obtenerIndicadores();
+        final ResultadoIndicadores resultado = await repo.obtenerIndicadores();
 
-      expect(resultado.origen, OrigenDatos.respaldo);
-      expect(resultado.indicadores, isNotEmpty);
-      expect(resultado.indicadores.first.anio, 2009);
-    });
+        expect(resultado.origen, OrigenDatos.respaldo);
+        expect(resultado.indicadores, isNotEmpty);
+        expect(resultado.indicadores.first.anio, 2009);
+      },
+    );
 
-    test('con caché vencida y servicio caído devuelve la caché local',
-        () async {
-      await dao.reemplazarTodo(
-        _indicadores(4),
-        momento: DateTime(2026, 1, 1),
-      );
-      final IndicadorRepositoryOfflineFirst repo = _repositorio(
-        dao: dao,
-        servicio: _servicioQueFalla(),
-        ahora: DateTime(2026, 10, 20),
-      );
+    test(
+      'con caché vencida y servicio caído devuelve la caché local',
+      () async {
+        await dao.reemplazarTodo(
+          _indicadores(4),
+          momento: DateTime(2026, 1, 1),
+        );
+        final IndicadorRepositoryOfflineFirst repo = _repositorio(
+          dao: dao,
+          servicio: _servicioQueFalla(),
+          ahora: DateTime(2026, 10, 20),
+        );
 
-      final ResultadoIndicadores resultado = await repo.obtenerIndicadores();
+        final ResultadoIndicadores resultado = await repo.obtenerIndicadores();
 
-      expect(resultado.origen, OrigenDatos.cacheLocal);
-      expect(resultado.indicadores, hasLength(4));
-    });
+        expect(resultado.origen, OrigenDatos.cacheLocal);
+        expect(resultado.indicadores, hasLength(4));
+      },
+    );
 
     test('con caché vigente NO consulta la red', () async {
       final DateTime ahora = DateTime(2026, 10, 20, 12);
@@ -546,15 +574,17 @@ void main() {
       );
     });
 
-    test('no se puede guardar una auditoría con establecimiento inexistente',
-        () async {
-      expect(
-        () => repositorio.guardar(
-          _auditoria(id: 'huerfana', establecimientoId: '00000000'),
-        ),
-        throwsA(isA<Fallo>()),
-      );
-    });
+    test(
+      'no se puede guardar una auditoría con establecimiento inexistente',
+      () async {
+        expect(
+          () => repositorio.guardar(
+            _auditoria(id: 'huerfana', establecimientoId: '00000000'),
+          ),
+          throwsA(isA<Fallo>()),
+        );
+      },
+    );
 
     test('el resumen agregado se calcula en SQL', () async {
       await sembrador.sembrar(cantidad: 3);
@@ -564,16 +594,17 @@ void main() {
       expect(resumen.totalOportunidades, 15);
       expect(resumen.ultimaAuditoria, isNotNull);
 
-      final Map<EstadoAuditoria, int> porEstado =
-          await repositorio.conteoPorEstado();
+      final Map<EstadoAuditoria, int> porEstado = await repositorio
+          .conteoPorEstado();
       expect(porEstado[EstadoAuditoria.finalizada], 2);
       expect(porEstado[EstadoAuditoria.borrador], 1);
     });
 
     test('resumenPorMomento agrupa las cinco categorías', () async {
       await sembrador.sembrar(cantidad: 1);
-      final Map<String, ({int total, int cumplidas})> porMomento =
-          await infra.auditoriasDao.resumenPorMomento();
+      final Map<String, ({int total, int cumplidas})> porMomento = await infra
+          .auditoriasDao
+          .resumenPorMomento();
 
       expect(porMomento.keys, hasLength(5));
       expect(porMomento.values.first.total, 1);
@@ -594,89 +625,96 @@ void main() {
       expect(conteos['personal'], 4);
     });
 
-    test('dos sembrados con la misma semilla producen los mismos totales',
-        () async {
-      // La reproducibilidad es una propiedad del sembrador cuando recibe la
-      // MISMA semilla y parte de una base vacía. Se comprueba con dos bases
-      // independientes para no confundirla con el efecto acumulativo de
-      // sembrar dos veces sobre la misma base.
-      Future<ResumenAdherencia> sembrarEnBaseNueva() async {
-        final ManosSegurasDb otraBase =
-            ManosSegurasDb(NativeDatabase.memory());
-        final AuditoriaRepositoryDrift otroRepo = AuditoriaRepositoryDrift(
-          InfraestructuraLocal(otraBase).auditoriasDao,
-        );
-        final SembradorDatos otroSembrador = SembradorDatos(
-          base: otraBase,
-          repositorio: otroRepo,
-          azar: Random(2026),
-        );
-        await otroSembrador.sembrar(cantidad: 2);
-        final ResumenAdherencia resumen = await otroRepo.resumenAdherencia();
-        await otraBase.close();
-        return resumen;
-      }
+    test(
+      'dos sembrados con la misma semilla producen los mismos totales',
+      () async {
+        // La reproducibilidad es una propiedad del sembrador cuando recibe la
+        // MISMA semilla y parte de una base vacía. Se comprueba con dos bases
+        // independientes para no confundirla con el efecto acumulativo de
+        // sembrar dos veces sobre la misma base.
+        Future<ResumenAdherencia> sembrarEnBaseNueva() async {
+          final ManosSegurasDb otraBase = ManosSegurasDb(
+            NativeDatabase.memory(),
+          );
+          final AuditoriaRepositoryDrift otroRepo = AuditoriaRepositoryDrift(
+            InfraestructuraLocal(otraBase).auditoriasDao,
+          );
+          final SembradorDatos otroSembrador = SembradorDatos(
+            base: otraBase,
+            repositorio: otroRepo,
+            azar: Random(2026),
+          );
+          await otroSembrador.sembrar(cantidad: 2);
+          final ResumenAdherencia resumen = await otroRepo.resumenAdherencia();
+          await otraBase.close();
+          return resumen;
+        }
 
-      final ResumenAdherencia primero = await sembrarEnBaseNueva();
-      final ResumenAdherencia segundo = await sembrarEnBaseNueva();
+        final ResumenAdherencia primero = await sembrarEnBaseNueva();
+        final ResumenAdherencia segundo = await sembrarEnBaseNueva();
 
-      expect(segundo.totalAuditorias, primero.totalAuditorias);
-      expect(segundo.totalOportunidades, primero.totalOportunidades);
-      expect(segundo.totalCumplidas, primero.totalCumplidas);
-    });
+        expect(segundo.totalAuditorias, primero.totalAuditorias);
+        expect(segundo.totalOportunidades, primero.totalOportunidades);
+        expect(segundo.totalCumplidas, primero.totalCumplidas);
+      },
+    );
   });
 
   // -----------------------------------------------------------------
   group('Persistencia real y transacciones', () {
-    test('los datos sobreviven al cierre y reapertura del MISMO archivo',
-        () async {
-      await sembrarCatalogos();
-      final File archivo = File(
-        '${Directory.systemTemp.path}/manos_seguras_'
-        '${DateTime.now().microsecondsSinceEpoch}.sqlite',
-      );
+    test(
+      'los datos sobreviven al cierre y reapertura del MISMO archivo',
+      () async {
+        await sembrarCatalogos();
+        final File archivo = File(
+          '${Directory.systemTemp.path}/manos_seguras_'
+          '${DateTime.now().microsecondsSinceEpoch}.sqlite',
+        );
 
-      // --- Primera sesión: se guarda una auditoría y se cierra la base ---
-      final ManosSegurasDb base1 = ManosSegurasDb(NativeDatabase(archivo));
-      // Los catálogos se siembran en la base DEL ARCHIVO (no en la de memoria
-      // del setUp): cada conexión tiene su propio estado.
-      await base1.insertarEstablecimiento(Establecimiento.ejemplo().aFila());
-      await base1.insertarPersonal(Observador.ejemplo().aFila());
-      await base1.insertarPersonal(Observado.ejemplo().aFila());
-      await AuditoriaRepositoryDrift(
-        InfraestructuraLocal(base1).auditoriasDao,
-      ).guardar(_auditoria(id: 'persistente'));
-      final Auditoria antes = await AuditoriaRepositoryDrift(
-        InfraestructuraLocal(base1).auditoriasDao,
-      ).obtenerPorId('persistente');
-      await base1.close();
+        // --- Primera sesión: se guarda una auditoría y se cierra la base ---
+        final ManosSegurasDb base1 = ManosSegurasDb(NativeDatabase(archivo));
+        // Los catálogos se siembran en la base DEL ARCHIVO (no en la de memoria
+        // del setUp): cada conexión tiene su propio estado.
+        await base1.insertarEstablecimiento(Establecimiento.ejemplo().aFila());
+        await base1.insertarPersonal(Observador.ejemplo().aFila());
+        await base1.insertarPersonal(Observado.ejemplo().aFila());
+        await AuditoriaRepositoryDrift(
+          InfraestructuraLocal(base1).auditoriasDao,
+        ).guardar(_auditoria(id: 'persistente'));
+        final Auditoria antes = await AuditoriaRepositoryDrift(
+          InfraestructuraLocal(base1).auditoriasDao,
+        ).obtenerPorId('persistente');
+        await base1.close();
 
-      // --- Segunda sesión: se reabre el MISMO archivo ---
-      final ManosSegurasDb base2 = ManosSegurasDb(NativeDatabase(archivo));
-      final Auditoria recuperada = await AuditoriaRepositoryDrift(
-        InfraestructuraLocal(base2).auditoriasDao,
-      ).obtenerPorId('persistente');
+        // --- Segunda sesión: se reabre el MISMO archivo ---
+        final ManosSegurasDb base2 = ManosSegurasDb(NativeDatabase(archivo));
+        final Auditoria recuperada = await AuditoriaRepositoryDrift(
+          InfraestructuraLocal(base2).auditoriasDao,
+        ).obtenerPorId('persistente');
 
-      expect(recuperada.id, antes.id);
-      expect(recuperada.establecimientoNombre, antes.establecimientoNombre);
-      expect(recuperada.fecha, antes.fecha);
-      expect(recuperada.totalOportunidades, 0);
+        expect(recuperada.id, antes.id);
+        expect(recuperada.establecimientoNombre, antes.establecimientoNombre);
+        expect(recuperada.fecha, antes.fecha);
+        expect(recuperada.totalOportunidades, 0);
 
-      await base2.close();
-      await archivo.delete();
-    });
+        await base2.close();
+        await archivo.delete();
+      },
+    );
 
-    test('limpiarAuditorias borra detalle y cabecera en una transacción',
-        () async {
-      await sembrador.sembrar(cantidad: 2);
-      await base.limpiarAuditorias();
+    test(
+      'limpiarAuditorias borra detalle y cabecera en una transacción',
+      () async {
+        await sembrador.sembrar(cantidad: 2);
+        await base.limpiarAuditorias();
 
-      final Map<String, int> conteos = await base.contarFilas();
-      expect(conteos['auditorias'], 0);
-      expect(conteos['oportunidades'], 0);
-      // Los catálogos no se tocan.
-      expect(conteos['establecimientos'], 1);
-    });
+        final Map<String, int> conteos = await base.contarFilas();
+        expect(conteos['auditorias'], 0);
+        expect(conteos['oportunidades'], 0);
+        // Los catálogos no se tocan.
+        expect(conteos['establecimientos'], 1);
+      },
+    );
   });
 }
 
