@@ -167,3 +167,68 @@ como no presentado**.
   Structure*. Prentice Hall.
 - Organización Mundial de la Salud. (2026). *Global Health Observatory:
   indicador WSH_HYGIENE_BASIC*. https://www.who.int/data/gho
+
+
+## Aporte del Reto 2: política de vigencia y resiliencia
+
+Rama: `feature/reto-2-offline-first`. Historias asociadas: HU-05 (5 puntos) y
+HU-07 (2 puntos); tarea T-04 y parte de T-06 del Sprint Semana 10,
+del 6 al 9 de octubre de 2026.
+Tablero: https://trello.com/b/rKcJwBEc/manosseguras-scrum-semana-10-base-2-06-09-oct-2026
+
+| Recurso | Vigencia por defecto | Motivo |
+|---|---|---|
+| WSH_HYGIENE_BASIC | 24 horas | Reutilizar la serie anual y limitar consumo de red; revisarla diariamente. |
+| establecimientos | 7 días | El catálogo cambia con menor frecuencia. |
+| auditorias | 5 minutos | Las observaciones en curso cambian con mayor frecuencia. |
+
+El mapa es inyectable. El repositorio de indicadores utiliza la política del
+indicador OMS; los otros recursos tienen su política definida para que sus
+repositorios la utilicen cuando se incorporen fuentes remotas. No se implementa
+sincronización remota de auditorías ni establecimientos en este reto.
+La caché expira cuando su edad alcanza el límite. Una marca futura o un recurso
+sin política no se considera vigente.
+
+`ResultadoIndicadores.datosObsoletos` advierte cuando se entrega una caché vencida
+(o invalidada) después de un fallo remoto. La pantalla muestra una insignia ámbar
+con advertencia; conserva la fecha real de descarga. El refresco forzado que falla
+no vuelve obsoleta una caché que todavía está vigente. Sin datos locales, el
+respaldo empaquetado evita una excepción por falta de red.
+
+`invalidar(codigo)` establece la marca de sincronización en NULL sin eliminar
+los datos, la fecha de descarga ni los fallos consecutivos. El contador aumenta
+atómicamente por fallo y se reinicia en la misma transacción que reemplaza la
+caché tras una descarga exitosa.
+
+### Esquema y coordinación con Reto 4
+
+La base recibida ya contiene el esquema v2 de los Retos 1 y 4. El Reto 2 introduce
+v3: `sincronizaciones.intentos_fallidos` con valor inicial 0 y
+`ultima_sincronizacion` nullable. La migración reconstruye únicamente esa tabla
+con Drift y conserva sus filas; las migraciones v1 a v2 se mantienen.
+Hay pruebas de v1 al esquema actual y de v2 a v3, incluyendo lectura y escritura
+posteriores. Para revertir una instalación se necesita restaurar una copia de
+seguridad compatible; no se implementa una migración descendente.
+
+### Validación y evidencias
+
+```bash
+dart run build_runner build
+flutter analyze --fatal-infos
+flutter test
+flutter test test/data/reto_2_offline_first_test.dart test/presentation/reto_2_indicadores_test.dart
+```
+
+Se añaden 11 pruebas de datos y 4 de pantalla: los cinco caminos exigidos,
+contador de fallos, invalidación, aislamiento por recurso, límites de vigencia y
+migración. Las pruebas no consultan Internet ni requieren emulador.
+
+Las capturas y sus instrucciones de inserción en el informe se entregan en una
+carpeta externa, por solicitud del integrante. Ninguna carpeta de entregas,
+imagen generada ni base SQLite se incorpora al repositorio. Las cuatro capturas
+UI son renders de la pantalla real durante pruebas de widget con datos
+controlados; no demuestran una sesión de modo avión ni una descarga real de OMS.
+La evidencia en un dispositivo debe completarse antes de dar esas verificaciones
+manuales por realizadas. Para exportar los renders se puede definir
+`RETO2_EVIDENCIAS` con una ruta externa al repositorio; opcionalmente,
+`RETO2_FUENTE` y `RETO2_ICONOS` proporcionan fuentes locales para capturas legibles.
