@@ -36,6 +36,15 @@ abstract interface class IndicadoresDao {
 
   /// Elimina todos los registros de la caché (sin tocar `sincronizaciones`).
   Future<void> limpiar();
+
+  /// Reto 2: número de intentos fallidos consecutivos de [codigo].
+  Future<int> obtenerIntentosFallidos(String codigo);
+
+  /// Reto 2: incrementa en 1 los fallos consecutivos de [codigo].
+  Future<void> registrarIntentoFallido(String codigo);
+
+  /// Reto 2: borra la marca de sincronización sin borrar los datos.
+  Future<void> invalidarMarca(String codigo);
 }
 
 /// Implementación con drift (ver Anexo A, Error 7: por qué no lleva
@@ -78,9 +87,7 @@ class DriftIndicadoresDao extends DatabaseAccessor<db.ManosSegurasDb>
   /// Si algo falla, la caché anterior sigue intacta: la aplicación nunca se
   /// queda sin datos por una descarga a medias.
   ///
-  /// TODO(reto-2, mejora): agregue el código del recurso como parámetro (hoy
-  /// está fijo en `WSH_HYGIENE_BASIC`) y registre también el número de
-  /// intentos fallidos en `sincronizaciones`.
+  /// Reto 2: además reinicia a cero `intentosFallidos`.
   @override
   Future<void> reemplazarTodo(
     List<IndicadorHigiene> indicadores, {
@@ -106,6 +113,7 @@ class DriftIndicadoresDao extends DatabaseAccessor<db.ManosSegurasDb>
           codigo: HigieneApiService.codigoIndicador,
           ultimaSincronizacion: momento,
           registros: Value<int>(indicadores.length),
+          intentosFallidos: const Value<int>(0),
         ),
       );
     });
@@ -123,5 +131,47 @@ class DriftIndicadoresDao extends DatabaseAccessor<db.ManosSegurasDb>
   @override
   Future<void> limpiar() {
     return delete(attachedDatabase.indicadoresCache).go();
+  }
+
+  @override
+  Future<int> obtenerIntentosFallidos(String codigo) async {
+    final db.Sincronizacione? fila =
+        await (select(attachedDatabase.sincronizaciones)
+              ..where((g.TablaSincronizaciones t) => t.codigo.equals(codigo)))
+            .getSingleOrNull();
+    return fila?.intentosFallidos ?? 0;
+  }
+
+  @override
+  Future<void> registrarIntentoFallido(String codigo) async {
+    final db.Sincronizacione? existente =
+        await (select(attachedDatabase.sincronizaciones)
+              ..where((g.TablaSincronizaciones t) => t.codigo.equals(codigo)))
+            .getSingleOrNull();
+    if (existente == null) {
+      await into(attachedDatabase.sincronizaciones).insert(
+        db.SincronizacionesCompanion.insert(
+          codigo: codigo,
+          ultimaSincronizacion: DateTime(2000),
+          registros: const Value<int>(0),
+          intentosFallidos: const Value<int>(1),
+        ),
+      );
+      return;
+    }
+    await (update(attachedDatabase.sincronizaciones)
+          ..where((g.TablaSincronizaciones t) => t.codigo.equals(codigo)))
+        .write(
+      db.SincronizacionesCompanion(
+        intentosFallidos: Value<int>(existente.intentosFallidos + 1),
+      ),
+    );
+  }
+
+  @override
+  Future<void> invalidarMarca(String codigo) {
+    return (delete(attachedDatabase.sincronizaciones)
+          ..where((g.TablaSincronizaciones t) => t.codigo.equals(codigo)))
+        .go();
   }
 }

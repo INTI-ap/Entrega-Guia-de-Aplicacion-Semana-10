@@ -52,6 +52,21 @@ class RepositorioAuditoriasEnMemoria implements AuditoriaRepository {
   }
 
   @override
+  Future<List<Auditoria>> listarPaginado({
+    bool incluirEliminadas = false,
+    required int limite,
+    int offset = 0,
+  }) async {
+    _verificarFallo();
+    final List<Auditoria> filtradas = _auditorias
+        .where((Auditoria a) => incluirEliminadas || !a.eliminada)
+        .toList();
+    if (offset >= filtradas.length) return <Auditoria>[];
+    final int fin = (offset + limite).clamp(0, filtradas.length);
+    return filtradas.sublist(offset, fin);
+  }
+
+  @override
   Future<Auditoria> obtenerPorId(String id) async {
     _verificarFallo();
     final Auditoria? encontrada = _auditorias

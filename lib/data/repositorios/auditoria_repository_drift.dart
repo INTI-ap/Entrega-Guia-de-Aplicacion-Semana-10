@@ -73,6 +73,27 @@ class AuditoriaRepositoryDrift implements AuditoriaRepository {
     }
   }
 
+  /// Reto 5: paginación en SQL.
+  @override
+  Future<List<Auditoria>> listarPaginado({
+    bool incluirEliminadas = false,
+    required int limite,
+    int offset = 0,
+  }) async {
+    try {
+      return await _dao.listar(
+        incluirEliminadas: incluirEliminadas,
+        limite: limite,
+        offset: offset,
+      );
+    } catch (error) {
+      throw FalloLocal(
+        'No se pudieron leer las auditorías paginadas.',
+        causa: error,
+      );
+    }
+  }
+
   @override
   Future<Auditoria> obtenerPorId(String id) async {
     try {

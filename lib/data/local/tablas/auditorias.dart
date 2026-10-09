@@ -15,6 +15,8 @@ import 'personal.dart';
 ///    `PRAGMA foreign_keys = ON` SQLite NO las hace cumplir (Reto 5).
 ///  * **Borrado lógico.** La columna `eliminada` existe porque una
 ///    auditoría es un documento con valor normativo: se anula, no se borra.
+///  * **Reto 5:** índice compuesto `(estado, fecha)` para el listado.
+@TableIndex(name: 'idx_auditorias_estado_fecha', columns: {#estado, #fecha})
 class Auditorias extends Table {
   TextColumn get id => text()();
 

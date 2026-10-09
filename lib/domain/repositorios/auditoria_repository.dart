@@ -35,6 +35,14 @@ abstract interface class AuditoriaRepository {
   /// Lista las auditorías activas en el rango de fechas [desde] y [hasta] (Reto 1).
   Future<List<Auditoria>> listarPorRango(DateTime desde, DateTime hasta);
 
+  /// Reto 5: listado paginado en SQL (LIMIT/OFFSET). Cargar 10 000 filas en
+  /// un ListView agota memoria y batería: se pagina de 20 en 20.
+  Future<List<Auditoria>> listarPaginado({
+    bool incluirEliminadas = false,
+    required int limite,
+    int offset = 0,
+  });
+
   /// Devuelve una auditoría con sus oportunidades o lanza
   /// [FalloNoEncontrado].
   Future<Auditoria> obtenerPorId(String id);

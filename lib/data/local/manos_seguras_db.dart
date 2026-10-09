@@ -78,6 +78,17 @@ class ManosSegurasDb extends _$ManosSegurasDb {
           await m.addColumn(auditorias, auditorias.consentimientoVerbal);
           await m.addColumn(auditorias, auditorias.observacionGeneral);
           await m.addColumn(oportunidades, oportunidades.duracionSegundos);
+          // Reto 2: contador de fallos consecutivos por recurso.
+          await m.addColumn(
+            sincronizaciones,
+            sincronizaciones.intentosFallidos,
+          );
+          // Reto 5: índice compuesto (estado, fecha) para el listado.
+          // En bases ya instaladas el índice no se crea solo: se crea aquí.
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_auditorias_estado_fecha '
+            'ON auditorias (estado, fecha)',
+          );
 
           await customStatement(
             "UPDATE auditorias SET observacion_general = '' "

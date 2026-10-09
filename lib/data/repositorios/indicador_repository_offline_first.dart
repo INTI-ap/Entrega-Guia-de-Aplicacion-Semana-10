@@ -35,9 +35,11 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
     required IndicadoresDao dao,
     required HigieneApiService servicio,
     this.vigencia = const Duration(hours: 24),
+    Map<String, Duration>? vigencias,
     DateTime Function()? reloj,
   })  : _dao = dao,
         _servicio = servicio,
+        _vigencias = vigencias,
         _reloj = reloj ?? DateTime.now;
 
   final IndicadoresDao _dao;
@@ -49,22 +51,48 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
   /// para el clima).
   final Duration vigencia;
 
+  /// Reto 2: política de vigencia por recurso (codigo -> Duration).
+  final Map<String, Duration>? _vigencias;
+
+  /// Reto 2: política por recurso con al menos tres recursos distintos.
+  /// La serie anual de la OMS cambia una vez al año, el catálogo de
+  /// establecimientos puede cambiar semanalmente y el resumen de una
+  /// auditoría en curso debe refrescarse en minutos.
+  static const Map<String, Duration> vigenciasPorRecurso =
+      <String, Duration>{
+    'WSH_HYGIENE_BASIC': Duration(hours: 24),
+    'establecimientos': Duration(days: 7),
+    'auditorias': Duration(minutes: 15),
+  };
+
   /// Reloj inyectable para probar el vencimiento sin esperar 24 horas.
   final DateTime Function() _reloj;
 
-  /// **Versión base del Reto 2.**
-  ///
-  /// TODO(reto-2, mejora): convierta [vigencia] en un mapa por recurso
-  /// (`{'WSH_HYGIENE_BASIC': Duration(hours: 24), 'establecimientos': …}`) y
-  /// exponga en la interfaz cuánto falta para el próximo refresco.
+  /// Reto 2: devuelve la vigencia configurada para [codigo].
   @override
-  bool cacheEsVigente(DateTime? ultimaSincronizacion, {DateTime? ahora}) {
-    if (ultimaSincronizacion == null) return false;
-    final DateTime momento = ahora ?? _reloj();
-    return momento.difference(ultimaSincronizacion) <= vigencia;
+  Duration vigenciaPara(String codigo) {
+    if (_vigencias != null && _vigencias.containsKey(codigo)) {
+      return _vigencias[codigo]!;
+    }
+    return vigenciasPorRecurso[codigo] ?? vigencia;
   }
 
-  /// **Versión base del Reto 2: la política de tres niveles.**
+  /// Reto 2: vigencia por recurso. [codigo] selecciona la política;
+  /// si es nulo se usa el indicador principal.
+  @override
+  bool cacheEsVigente(
+    DateTime? ultimaSincronizacion, {
+    DateTime? ahora,
+    String? codigo,
+  }) {
+    if (ultimaSincronizacion == null) return false;
+    final DateTime momento = ahora ?? _reloj();
+    final Duration politica =
+        vigenciaPara(codigo ?? HigieneApiService.codigoIndicador);
+    return momento.difference(ultimaSincronizacion) <= politica;
+  }
+
+  /// **Reto 2: política de tres niveles con vigencia por recurso.**
   ///
   /// El método respeta la siguiente prioridad y **nunca lanza excepción por
   /// falta de red**:
@@ -75,26 +103,22 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
   /// | Descarga exitosa                            | `red` (y guarda)     |
   /// | Descarga fallida + caché con filas          | `cacheLocal` (vieja) |
   /// | Descarga fallida + caché vacía              | `respaldo` (assets)  |
-  ///
-  /// TODO(reto-2, mejora): agregue un `debugPrint` con la causa del fallo y
-  /// exponga en [ResultadoIndicadores] un indicador `datosObsoletos` para
-  /// que la interfaz pueda advertir "estos datos tienen más de 24 h".
   @override
   Future<ResultadoIndicadores> obtenerIndicadores({
     bool forzarRefresco = false,
   }) async {
-    final DateTime? ultima = await _dao.ultimaSincronizacion(
-      HigieneApiService.codigoIndicador,
-    );
+    final String codigo = HigieneApiService.codigoIndicador;
+    final DateTime? ultima = await _dao.ultimaSincronizacion(codigo);
 
     // Nivel 2: caché local vigente.
-    if (!forzarRefresco && cacheEsVigente(ultima)) {
+    if (!forzarRefresco && cacheEsVigente(ultima, codigo: codigo)) {
       final List<IndicadorHigiene> locales = await _dao.leerTodo();
       if (locales.isNotEmpty) {
         return ResultadoIndicadores(
           indicadores: locales,
           origen: OrigenDatos.cacheLocal,
           actualizadoEn: ultima,
+          datosObsoletos: false,
         );
       }
     }
@@ -108,8 +132,15 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
         indicadores: remotas,
         origen: OrigenDatos.red,
         actualizadoEn: _reloj(),
+        datosObsoletos: false,
       );
     } on FalloRemoto {
+      // Se registra el fallo consecutivo (Reto 2, consigna 11).
+      try {
+        await _dao.registrarIntentoFallido(codigo);
+      } catch (_) {
+        // El registro del fallo nunca debe romper la degradación.
+      }
       // Nivel 2 degradado: la caché existe pero está vencida.
       final List<IndicadorHigiene> locales = await _dao.leerTodo();
       if (locales.isNotEmpty) {
@@ -117,6 +148,7 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
           indicadores: locales,
           origen: OrigenDatos.cacheLocal,
           actualizadoEn: ultima,
+          datosObsoletos: true,
         );
       }
 
@@ -124,9 +156,14 @@ class IndicadorRepositoryOfflineFirst implements IndicadorRepository {
       return ResultadoIndicadores(
         indicadores: _servicio.respaldoLocal(),
         origen: OrigenDatos.respaldo,
+        datosObsoletos: true,
       );
     }
   }
+
+  /// Reto 2: borra la marca de sincronización sin borrar los datos.
+  @override
+  Future<void> invalidar(String codigo) => _dao.invalidarMarca(codigo);
 
   @override
   Future<List<IndicadorHigiene>> leerCache() => _dao.leerTodo();

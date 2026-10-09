@@ -191,6 +191,15 @@ class _Cabecera extends StatelessWidget {
                 ),
             ],
           ),
+          // Reto 2: insignia ámbar cuando los datos están obsoletos.
+          if (resultado.datosObsoletos) ...<Widget>[
+            const SizedBox(height: 8),
+            const InsigniaOrigen(
+              etiqueta: 'Datos obsoletos: caché vencida',
+              esRemoto: false,
+              icono: Icons.warning_amber_rounded,
+            ),
+          ],
           if (primero != null && ultimo != null) ...<Widget>[
             const Divider(height: 28),
             Row(

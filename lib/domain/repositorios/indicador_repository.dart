@@ -14,7 +14,17 @@ import '../entidades/indicador_higiene.dart';
 /// ```
 abstract interface class IndicadorRepository {
   /// Indica si la caché local puede usarse sin consultar el servicio.
-  bool cacheEsVigente(DateTime? ultimaSincronizacion, {DateTime? ahora});
+  ///
+  /// Reto 2: [codigo] selecciona la vigencia por recurso. Si es nulo se usa
+  /// la vigencia del indicador principal.
+  bool cacheEsVigente(
+    DateTime? ultimaSincronizacion, {
+    DateTime? ahora,
+    String? codigo,
+  });
+
+  /// Vigencia configurada para [codigo] (política por recurso, Reto 2).
+  Duration vigenciaPara(String codigo);
 
   /// Consulta offline-first: nunca lanza excepción por falta de red;
   /// degrada el [OrigenDatos] y sigue mostrando datos.
@@ -37,6 +47,10 @@ abstract interface class IndicadorRepository {
 
   /// Vacía la caché (útil para demostrar el camino "sin datos locales").
   Future<void> limpiarCache();
+
+  /// Reto 2: borra la marca de sincronización de [codigo] sin borrar los
+  /// datos, de modo que la próxima consulta fuerce la descarga.
+  Future<void> invalidar(String codigo);
 }
 
 /// **Contrato del almacén clave-valor** para preferencias y banderas

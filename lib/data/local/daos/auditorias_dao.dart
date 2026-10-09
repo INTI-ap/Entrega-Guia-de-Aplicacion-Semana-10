@@ -38,11 +38,23 @@ abstract interface class AuditoriasDao {
   Stream<List<Auditoria>> observar({bool incluirEliminadas = false});
 
   /// Lectura puntual de todas las auditorías, con su detalle.
-  Future<List<Auditoria>> listar({bool incluirEliminadas = false});
+  ///
+  /// Reto 5: [limite] y [offset] implementan paginación en SQL para no
+  /// cargar 10 000 filas en un ListView.
+  Future<List<Auditoria>> listar({
+    bool incluirEliminadas = false,
+    int? limite,
+    int? offset,
+  });
 
   /// Lista solo las auditorías activas dentro del rango [desde] y [hasta].
   /// Reto 1: filtra a nivel de SQL (`where`), no en memoria.
-  Future<List<Auditoria>> listarPorRango(DateTime desde, DateTime hasta);
+  Future<List<Auditoria>> listarPorRango(
+    DateTime desde,
+    DateTime hasta, {
+    int? limite,
+    int? offset,
+  });
 
   /// Lee una auditoría concreta con su detalle.
   Future<Auditoria?> buscarPorId(String id);
@@ -81,6 +93,11 @@ abstract interface class AuditoriasDao {
 
   /// Cuenta de oportunidades por momento, con `GROUP BY`. Reto 5.
   Future<Map<String, ({int total, int cumplidas})>> resumenPorMomento();
+
+  /// Reto 5: devuelve el plan de ejecución de la consulta del listado
+  /// (`EXPLAIN QUERY PLAN`) para demostrar que usa el índice
+  /// `idx_auditorias_estado_fecha`.
+  Future<String> explicarPlanListado();
 }
 
 /// **Implementación de referencia con drift.**
@@ -112,25 +129,45 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
   }
 
   @override
-  Future<List<Auditoria>> listar({bool incluirEliminadas = false}) async {
+  Future<List<Auditoria>> listar({
+    bool incluirEliminadas = false,
+    int? limite,
+    int? offset,
+  }) async {
     final List<db.Auditoria> filas = await _cabeceras(
       incluirEliminadas: incluirEliminadas,
+      limite: limite,
+      offset: offset,
     );
     return _conOportunidades(filas, incluirEliminadas: incluirEliminadas);
   }
 
   /// **Reto 1 (consigna 6):** filtra por rango directamente en SQL usando `where()`.
+  /// Reto 5: acepta [limite]/[offset] para paginar.
   @override
-  Future<List<Auditoria>> listarPorRango(DateTime desde, DateTime hasta) async {
-    final List<db.Auditoria> filas = await (select(attachedDatabase.auditorias)
-          ..where((g.TablaAuditorias t) =>
-              t.eliminada.equals(false) &
-              t.fecha.isBiggerOrEqualValue(desde) &
-              t.fecha.isSmallerOrEqualValue(hasta))
+  Future<List<Auditoria>> listarPorRango(
+    DateTime desde,
+    DateTime hasta, {
+    int? limite,
+    int? offset,
+  }) async {
+    final SimpleSelectStatement<g.TablaAuditorias, db.Auditoria> consulta =
+        select(attachedDatabase.auditorias)
+          ..where(
+            (g.TablaAuditorias t) =>
+                t.eliminada.equals(false) &
+                t.fecha.isBiggerOrEqualValue(desde) &
+                t.fecha.isSmallerOrEqualValue(hasta),
+          )
           ..orderBy(<OrderingTerm Function(g.TablaAuditorias)>[
             (g.TablaAuditorias t) => OrderingTerm.desc(t.fecha),
-          ]))
-        .get();
+          ]);
+    // Reto 5: paginación en SQL. Cargar 10 000 filas en un ListView agota
+    // memoria y batería aunque "funcione": se pagina con LIMIT/OFFSET.
+    if (limite != null) {
+      consulta.limit(limite, offset: offset ?? 0);
+    }
+    final List<db.Auditoria> filas = await consulta.get();
     return _conOportunidades(filas);
   }
 
@@ -299,31 +336,50 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
     );
   }
 
-  /// **Reto 5 (rendimiento).**
+  /// **Reto 5 (rendimiento): agregación en SQL con GROUP BY.**
   ///
-  /// TODO(reto-5): reescriba esta agregación con `GROUP BY momento_clave` y
-  /// compare el tiempo con 1 000 oportunidades sembradas. La versión base
-  /// resuelve el cálculo en memoria para que la pantalla funcione desde el
-  /// primer minuto.
+  /// Calcula por momento: total y cumplidas (accion != 'omision'),
+  /// solo sobre auditorías activas. Una sola fila por momento, sin cargar
+  /// 5 000 objetos en memoria.
   @override
   Future<Map<String, ({int total, int cumplidas})>> resumenPorMomento() async {
-    final List<Auditoria> auditorias = await listar();
-    final Map<String, ({int total, int cumplidas})> acumulado =
+    final List<QueryRow> filas = await customSelect(
+      "SELECT o.momento_clave AS momento, "
+      "COUNT(o.id) AS total, "
+      "COALESCE(SUM(CASE WHEN o.accion_clave = 'omision' "
+      "THEN 0 ELSE 1 END), 0) AS cumplidas "
+      "FROM oportunidades o "
+      "INNER JOIN auditorias a ON a.id = o.auditoria_id "
+      "WHERE a.eliminada = 0 "
+      "GROUP BY o.momento_clave",
+      readsFrom: <ResultSetImplementation<Object?, Object?>>{
+        attachedDatabase.auditorias,
+        attachedDatabase.oportunidades,
+      },
+    ).get();
+    final Map<String, ({int total, int cumplidas})> resultado =
         <String, ({int total, int cumplidas})>{};
-
-    for (final Auditoria auditoria in auditorias) {
-      for (final OportunidadRegistro oportunidad in auditoria.oportunidades) {
-        final String clave = oportunidad.momento.clave;
-        final ({int total, int cumplidas}) actual =
-            acumulado[clave] ?? (total: 0, cumplidas: 0);
-        acumulado[clave] = (
-          total: actual.total + 1,
-          cumplidas: actual.cumplidas + (oportunidad.cumplio ? 1 : 0),
-        );
-      }
+    for (final QueryRow fila in filas) {
+      resultado[fila.read<String>('momento')] = (
+        total: fila.read<int>('total'),
+        cumplidas: fila.read<int>('cumplidas'),
+      );
     }
+    return resultado;
+  }
 
-    return acumulado;
+  @override
+  Future<String> explicarPlanListado() async {
+    final List<QueryRow> filas = await customSelect(
+      'EXPLAIN QUERY PLAN SELECT * FROM auditorias '
+      'WHERE eliminada = 0 ORDER BY fecha DESC',
+      readsFrom: <ResultSetImplementation<Object?, Object?>>{
+        attachedDatabase.auditorias,
+      },
+    ).get();
+    return filas
+        .map((QueryRow f) => f.read<String?>('detail') ?? '')
+        .join('\n');
   }
 
   // -------------------------------------------------------------------
@@ -332,6 +388,8 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
 
   Future<List<db.Auditoria>> _cabeceras({
     bool incluirEliminadas = false,
+    int? limite,
+    int? offset,
   }) {
     final SimpleSelectStatement<g.TablaAuditorias, db.Auditoria> consulta =
         select(attachedDatabase.auditorias)
@@ -343,6 +401,9 @@ class DriftAuditoriasDao extends DatabaseAccessor<db.ManosSegurasDb>
           ]);
     if (!incluirEliminadas) {
       consulta.where((g.TablaAuditorias t) => t.eliminada.equals(false));
+    }
+    if (limite != null) {
+      consulta.limit(limite, offset: offset ?? 0);
     }
     return consulta.get();
   }

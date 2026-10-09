@@ -76,11 +76,16 @@ enum OrigenDatos {
 /// Resultado completo de una consulta offline-first: los datos y su
 /// procedencia. Devolver ambos juntos evita que la pantalla tenga que
 /// adivinar de dónde vinieron los datos.
+///
+/// Reto 2: [datosObsoletos] es verdadero cuando los datos servidos provienen
+/// de una caché vencida (o del respaldo), para que la interfaz muestre una
+/// insignia ámbar de advertencia.
 class ResultadoIndicadores {
   const ResultadoIndicadores({
     required this.indicadores,
     required this.origen,
     this.actualizadoEn,
+    this.datosObsoletos = false,
   });
 
   final List<IndicadorHigiene> indicadores;
@@ -89,6 +94,9 @@ class ResultadoIndicadores {
   /// Momento en que los datos se descargaron del servicio (puede ser
   /// anterior a "ahora" si vienen de la caché local).
   final DateTime? actualizadoEn;
+
+  /// Reto 2: verdadero si se sirvió caché vencida o respaldo.
+  final bool datosObsoletos;
 
   bool get estaVacio => indicadores.isEmpty;
 }
